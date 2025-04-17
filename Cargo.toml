@@ -1,0 +1,24 @@
+[package]
+name = "tx3-lsp"
+description = "Language Server Protocol implementation for tx3-lang"
+publish = false
+authors = ["TxPipe"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/tx3-lang/lsp"
+version = "0.1.0"
+keywords = ["blockchain", "cardano", "utxo", "dsl"]
+homepage = "https://github.com/tx3-lang/lsp"
+readme = "README.md"
+
+[dependencies]
+tokio = { version = "1.44.1", features = ["full"] }
+tower-lsp = "0.20.0"
+tower = { version = "0.4", features = ["util"] }
+dashmap = "6.1.0"
+ropey = "1.6.1"
+tx3-lang = "0.1.0"
+pest = "2.7.15"
+miette = "7.5.0"
+serde_json = "1.0.140"
+hex = "0.4.3"
