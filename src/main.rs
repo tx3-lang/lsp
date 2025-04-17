@@ -103,7 +103,7 @@ impl LanguageServer for Backend {
                 )),
                 execute_command_provider: Some(
                     ExecuteCommandOptions {
-                        commands: vec!["generate-tir".to_string()],
+                        commands: vec!["generate-tir".to_string(), "generate-ast".to_string()],
                         work_done_progress_options: WorkDoneProgressOptions { work_done_progress: None }
                     }
                 ),
@@ -290,6 +290,17 @@ impl LanguageServer for Backend {
                 });
                 response.insert("parameters".to_string(), Value::Object(params));
 
+                return Ok(Some(Value::Object(response)));
+            }
+        }
+        if params.command == "generate-ast" {
+            let uri = Url::from_str(params.arguments[0].as_str().unwrap());
+            let document = self.documents.get(&uri.unwrap());
+            if let Some(document) = document {
+                let protocol = Protocol::from_string(document.value().to_string()).load().unwrap();
+                let ast = protocol.ast().to_owned();
+                let mut response = Map::new();
+                response.insert("ast".to_string(), serde_json::to_value(ast).unwrap());
                 return Ok(Some(Value::Object(response)));
             }
         }
