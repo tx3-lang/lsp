@@ -1,7 +1,6 @@
 [package]
 name = "tx3-lsp"
 description = "Language Server Protocol implementation for tx3-lang"
-publish = false
 authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
@@ -22,3 +21,8 @@ pest = "2.7.15"
 miette = "7.5.0"
 serde_json = "1.0.140"
 hex = "0.4.3"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
