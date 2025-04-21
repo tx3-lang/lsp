@@ -26,3 +26,9 @@ hex = "0.4.3"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[workspace.metadata.release]
+push = false
+publish = false
+tag-name = "v{{version}}"
+pre-release-commit-message = "release: v{{version}}"
