@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 
 use crate::{Context, Error};
 
+#[derive(Debug)]
 pub struct Args {
     document_url: String,
     tx_name: String,
@@ -46,6 +47,7 @@ pub async fn run(
 
     let out = json!({
         "tir": hex::encode(prototx.ir_bytes()),
+        "version": tx3_lang::ir::IR_VERSION,
         "parameters": params,
     });
 
