@@ -197,7 +197,10 @@ impl LanguageServer for Context {
     async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<Value>> {
         match cmds::handle_command(self, params).await {
             Ok(x) => Ok(x),
-            Err(e) => Err(e.into()),
+            Err(e) => {
+                dbg!(&e);
+                Err(e.into())
+            }
         }
     }
 
