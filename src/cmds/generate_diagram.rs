@@ -1,6 +1,5 @@
+use crate::{ast_to_svg::tx_to_svg, Context, Error};
 use serde_json::{json, Value};
-
-use crate::{Context, Error};
 
 pub struct Args {
     document_url: String,
@@ -27,14 +26,19 @@ pub async fn run(
     let args: Args = args.try_into()?;
 
     let protocol = context.get_document_protocol(&args.document_url)?;
-
     let ast = protocol.ast().to_owned();
 
-    // let diagram = ast_to_diagram(&ast);
+    let tx_svgs: Vec<Value> = ast
+        .txs
+        .iter()
+        .map(|tx| {
+            let svg = tx_to_svg(&ast, tx);
+            json!({
+                "tx_name": tx.name,
+                "svg": svg
+            })
+        })
+        .collect();
 
-    let out = json!({
-        "diagram": "<h1>Testing</h1>",
-    });
-
-    Ok(Some(out))
+    Ok(Some(Value::Array(tx_svgs)))
 }

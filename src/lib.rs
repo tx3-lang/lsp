@@ -8,6 +8,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::Client;
 use tx3_lang::Protocol;
 
+mod ast_to_svg;
 mod cmds;
 mod server;
 
