@@ -87,10 +87,8 @@ fn get_output_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
     let mut names = std::collections::HashSet::new();
     for output in &tx.outputs {
         for field in &output.fields {
-            // REVIEW
             if let OutputBlockField::To(address_expr) = field {
                 if let Some(identifier) = address_expr.as_identifier() {
-                    // Assuming Identifier has a 'value' field of type String
                     names.insert(identifier.value.clone());
                 }
             }
@@ -167,14 +165,15 @@ fn render_party(party: &Party, x: i32, y: i32) -> String {
 
 fn render_parameter(param: &Parameter, x: i32, y: i32) -> String {
     format!(
-        r#"<g transform="translate(-{unit},{half_unit})">
-    <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {quarter_unit}">
-        <text x="50%" y="10%" text-anchor="middle" dominant-baseline="hanging" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
-        <line x1="20%" y1="90%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
-        <line x1="70%" y1="80%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
-        <line x1="70%" y1="100%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
-    </svg>
-</g>"#,
+        r#"
+        <g transform="translate(-{unit},{half_unit})">
+        <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {quarter_unit}">
+            <text x="50%" y="10%" text-anchor="middle" dominant-baseline="hanging" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
+            <line x1="20%" y1="90%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+            <line x1="70%" y1="80%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+            <line x1="70%" y1="100%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+        </svg>
+    </g>"#,
         x = x,
         y = y,
         unit = UNIT,
@@ -189,11 +188,11 @@ fn render_parameter(param: &Parameter, x: i32, y: i32) -> String {
 fn render_tx(tx: &TxDef, x: i32, y: i32) -> String {
     format!(
         r#"<g transform="translate(-{unit})">
-    <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {double_unit}">
-        <rect width="100%" height="100%" rx="{corner}" ry="{corner}" fill-opacity="0" stroke="white" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
-    </svg>
-</g>"#,
+        <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {double_unit}">
+            <rect width="100%" height="100%" rx="{corner}" ry="{corner}" fill-opacity="0" stroke="white" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
+        </svg>
+    </g>"#,
         x = x,
         y = y,
         unit = UNIT,
@@ -221,14 +220,6 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
     )
     .unwrap();
 
-    //         svg,
-    //     r#"<svg width="100%" viewBox="0 0 {width} {height}">
-    //    <g transform="translate(0 {y_margin})">"#,
-    //     width = CANVA_WIDTH,
-    //     height = CANVA_HEIGHT + 2 * 16,
-    //     y_margin = 16
-    // )
-
     // Render transaction box in the center
     write!(svg, "{}", render_tx(tx, CANVA_WIDTH / 2, 0)).unwrap();
 
@@ -248,6 +239,12 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
     }
 
     // Render input parameters
+    write!(
+        svg,
+        r#"<g transform="translate({half_unit})">"#,
+        half_unit = UNIT / 2
+    )
+    .unwrap();
     for (i, input) in inputs.iter().enumerate() {
         write!(
             svg,
@@ -256,8 +253,15 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
         )
         .unwrap();
     }
+    write!(svg, "</g>").unwrap();
 
     // Render output parameters
+    write!(
+        svg,
+        r#"<g transform="translate(-{half_unit})">"#,
+        half_unit = UNIT / 2
+    )
+    .unwrap();
     for (i, output) in outputs.iter().enumerate() {
         write!(
             svg,
@@ -266,6 +270,8 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
         )
         .unwrap();
     }
+    write!(svg, "</g>").unwrap();
+
     // Draw lines from input parties to input parameters
     for (input_index, input) in inputs.iter().enumerate() {
         if let Some(ref name) = input.party {
@@ -274,9 +280,9 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
                 svg,
                     "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"rgb(255, 255, 255)\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
                 UNIT,
-                UNIT * (party_index as i32) + (UNIT / 2),
+                UNIT * (party_index as i32) + UNIT / 2,
                 CANVA_WIDTH / 4 - UNIT / 8,
-                UNIT * (input_index as i32) - (UNIT / 16)
+                UNIT * (input_index as i32 + 1) - UNIT / 16,
             ).unwrap();
             }
         }
