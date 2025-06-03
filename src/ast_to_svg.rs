@@ -38,24 +38,30 @@ fn infer_party_type(program: &Program, name: &str) -> PartyType {
     }
 }
 
-fn get_icon_url(party_type: &PartyType) -> &str {
-    match party_type {
-        PartyType::Unknown => {
-            r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" x="0px" y="0px">
-                <path d="M16 2C12.134 2 9 5.13401 9 9V13C9 15.3787 10.1865 17.4804 12 18.7453V21H8.01722C5.78481 21 3.82288 22.4799 3.20959 24.6264L2.03848 28.7253C1.95228 29.027 2.0127 29.3517 2.20166 29.6022C2.39062 29.8527 2.68622 30 3.00001 30H29C29.3138 30 29.6094 29.8527 29.7984 29.6022C29.9873 29.3517 30.0477 29.027 29.9615 28.7253L28.7904 24.6264C28.1771 22.4799 26.2152 21 23.9828 21H20V18.7453C21.8135 17.4804 23 15.3787 23 13V9C23 5.13401 19.866 2 16 2Z" fill="white"/>
-            </svg>"#
-        }
-        PartyType::Party => {
-            r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" x="0px" y="0px">
-                <path d="M16 2C12.134 2 9 5.13401 9 9V13C9 15.3787 10.1865 17.4804 12 18.7453V21H8.01722C5.78481 21 3.82288 22.4799 3.20959 24.6264L2.03848 28.7253C1.95228 29.027 2.0127 29.3517 2.20166 29.6022C2.39062 29.8527 2.68622 30 3.00001 30H29C29.3138 30 29.6094 29.8527 29.7984 29.6022C29.9873 29.3517 30.0477 29.027 29.9615 28.7253L28.7904 24.6264C28.1771 22.4799 26.2152 21 23.9828 21H20V18.7453C21.8135 17.4804 23 15.3787 23 13V9C23 5.13401 19.866 2 16 2Z" fill="white"/>
-            </svg>"#
+fn get_icon_svg(party_type: &PartyType, x: &i32, y: &i32, width: &i32, height: &i32) -> String {
+    let svg = match party_type {
+        PartyType::Unknown | PartyType::Party => {
+            r#"
+            <path d="M16 2C12.134 2 9 5.13401 9 9V13C9 15.3787 10.1865 17.4804 12 18.7453V21H8.01722C5.78481 21 3.82288 22.4799 3.20959 24.6264L2.03848 28.7253C1.95228 29.027 2.0127 29.3517 2.20166 29.6022C2.39062 29.8527 2.68622 30 3.00001 30H29C29.3138 30 29.6094 29.8527 29.7984 29.6022C29.9873 29.3517 30.0477 29.027 29.9615 28.7253L28.7904 24.6264C28.1771 22.4799 26.2152 21 23.9828 21H20V18.7453C21.8135 17.4804 23 15.3787 23 13V9C23 5.13401 19.866 2 16 2Z" fill="white"/>
+            "#
         }
         PartyType::Policy => {
-            r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" x="0px" y="0px">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M5 5C5 3.34315 6.34315 2 8 2H24C25.6569 2 27 3.34315 27 5V27C27 28.6569 25.6569 30 24 30H8C6.34315 30 5 28.6569 5 27V5ZM10 6C9.44772 6 9 6.44772 9 7C9 7.55228 9.44772 8 10 8H12C12.5523 8 13 7.55228 13 7C13 6.44772 12.5523 6 12 6H10ZM19 20C18.4477 20 18 20.4477 18 21C18 21.5523 18.4477 22 19 22H22C22.5523 22 23 21.5523 23 21C23 20.4477 22.5523 20 22 20H19ZM21 23C20.4477 23 20 23.4477 20 24C20 24.5523 20.4477 25 21 25H22C22.5523 25 23 24.5523 23 24C23 23.4477 22.5523 23 22 23H21ZM15 6C14.4477 6 14 6.44772 14 7C14 7.55228 14.4477 8 15 8H22C22.5523 8 23 7.55228 23 7C23 6.44772 22.5523 6 22 6H15ZM10 9C9.44772 9 9 9.44772 9 10C9 10.5523 9.44772 11 10 11H22C22.5523 11 23 10.5523 23 10C23 9.44772 22.5523 9 22 9H10ZM10 12C9.44772 12 9 12.4477 9 13C9 13.5523 9.44772 14 10 14H22C22.5523 14 23 13.5523 23 13C23 12.4477 22.5523 12 22 12H10ZM13 15C10.7909 15 9 16.7909 9 19C9 21.2091 10.7909 23 13 23C15.2091 23 17 21.2091 17 19C17 16.7909 15.2091 15 13 15ZM13 24C11.8744 24 10.8357 23.6281 10 23.0004V26C10 26.3466 10.1795 26.6684 10.4743 26.8507C10.7691 27.0329 11.1372 27.0494 11.4472 26.8944L13 26.118L14.5528 26.8944C14.8628 27.0494 15.2309 27.0329 15.5257 26.8507C15.8205 26.6684 16 26.3466 16 26V23.0004C15.1643 23.6281 14.1256 24 13 24Z" fill="white"/>
-            </svg>"#
+            r#"
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M5 5C5 3.34315 6.34315 2 8 2H24C25.6569 2 27 3.34315 27 5V27C27 28.6569 25.6569 30 24 30H8C6.34315 30 5 28.6569 5 27V5ZM10 6C9.44772 6 9 6.44772 9 7C9 7.55228 9.44772 8 10 8H12C12.5523 8 13 7.55228 13 7C13 6.44772 12.5523 6 12 6H10ZM19 20C18.4477 20 18 20.4477 18 21C18 21.5523 18.4477 22 19 22H22C22.5523 22 23 21.5523 23 21C23 20.4477 22.5523 20 22 20H19ZM21 23C20.4477 23 20 23.4477 20 24C20 24.5523 20.4477 25 21 25H22C22.5523 25 23 24.5523 23 24C23 23.4477 22.5523 23 22 23H21ZM15 6C14.4477 6 14 6.44772 14 7C14 7.55228 14.4477 8 15 8H22C22.5523 8 23 7.55228 23 7C23 6.44772 22.5523 6 22 6H15ZM10 9C9.44772 9 9 9.44772 9 10C9 10.5523 9.44772 11 10 11H22C22.5523 11 23 10.5523 23 10C23 9.44772 22.5523 9 22 9H10ZM10 12C9.44772 12 9 12.4477 9 13C9 13.5523 9.44772 14 10 14H22C22.5523 14 23 13.5523 23 13C23 12.4477 22.5523 12 22 12H10ZM13 15C10.7909 15 9 16.7909 9 19C9 21.2091 10.7909 23 13 23C15.2091 23 17 21.2091 17 19C17 16.7909 15.2091 15 13 15ZM13 24C11.8744 24 10.8357 23.6281 10 23.0004V26C10 26.3466 10.1795 26.6684 10.4743 26.8507C10.7691 27.0329 11.1372 27.0494 11.4472 26.8944L13 26.118L14.5528 26.8944C14.8628 27.0494 15.2309 27.0329 15.5257 26.8507C15.8205 26.6684 16 26.3466 16 26V23.0004C15.1643 23.6281 14.1256 24 13 24Z" fill="white"/>
+            "#
         }
-    }
+    };
+
+    format!(
+        r#"<svg x="{x}%" y="{y}%" width="{width}%" height="{height}%" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+            {svg}
+        </svg>"#,
+        x = x,
+        y = y,
+        width = width,
+        height = height,
+        svg = svg
+    )
 }
 
 fn get_input_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
@@ -143,27 +149,23 @@ fn get_outputs(tx: &TxDef) -> Vec<Parameter> {
 }
 
 // SVG Rendering Functions
-fn render_party(party: &Party, x: usize, y: usize) -> String {
+fn render_party(party: &Party, x: i32, y: i32) -> String {
     format!(
         r#"<svg x="{x}" y="{y}" width="{unit}" height="{unit}" viewBox="0 0 {unit} {unit}">
-    <image x="{image_x}%" y="{image_y}%" width="{image_width}%" height="{image_height}%"/>{image}
+    {image_svg}
         <text x="50%" y="{text_y}%" text-anchor="middle" font-size="{font_size}%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
     </svg>"#,
         x = x,
         y = y,
         unit = UNIT,
-        image_x = 25,
-        image_y = 15,
-        image_width = 50,
-        image_height = 60,
-        image = get_icon_url(&party.party_type),
+        image_svg = get_icon_svg(&party.party_type, &25, &15, &50, &60),
         text_y = 85,
         font_size = 14,
         name = party.name,
     )
 }
 
-fn render_parameter(param: &Parameter, x: usize, y: usize) -> String {
+fn render_parameter(param: &Parameter, x: i32, y: i32) -> String {
     format!(
         r#"<g transform="translate(-{unit},{half_unit})">
     <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {quarter_unit}">
@@ -184,7 +186,7 @@ fn render_parameter(param: &Parameter, x: usize, y: usize) -> String {
     )
 }
 
-fn render_tx(tx: &TxDef, x: usize, y: usize) -> String {
+fn render_tx(tx: &TxDef, x: i32, y: i32) -> String {
     format!(
         r#"<g transform="translate(-{unit})">
     <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {double_unit}">
@@ -198,7 +200,7 @@ fn render_tx(tx: &TxDef, x: usize, y: usize) -> String {
         double_unit = UNIT * 2,
         width = UNIT * 2,
         height = UNIT * 4,
-        corner = UNIT / 10,
+        corner = UNIT as f64 / 10.0,
         name = tx.name
     )
 }
@@ -213,32 +215,26 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
 
     write!(
         svg,
-        r#"<svg width="100%" viewBox="0 0 {width} {height}">"#,
+        r#"<svg width="100%" viewBox="0 0 {width} {height}" class="my-16">"#,
         width = CANVA_WIDTH,
         height = CANVA_HEIGHT
     )
     .unwrap();
 
+    //         svg,
+    //     r#"<svg width="100%" viewBox="0 0 {width} {height}">
+    //    <g transform="translate(0 {y_margin})">"#,
+    //     width = CANVA_WIDTH,
+    //     height = CANVA_HEIGHT + 2 * 16,
+    //     y_margin = 16
+    // )
+
     // Render transaction box in the center
-    write!(
-        svg,
-        "{}",
-        render_tx(
-            tx,
-            (CANVA_WIDTH / 2) as usize,
-            (CANVA_HEIGHT / 2 - UNIT) as usize
-        )
-    )
-    .unwrap();
+    write!(svg, "{}", render_tx(tx, CANVA_WIDTH / 2, 0)).unwrap();
 
     // Render input parties on the left
     for (i, party) in input_parties.iter().enumerate() {
-        write!(
-            svg,
-            "{}",
-            render_party(party, 0, (UNIT * i as i32) as usize)
-        )
-        .unwrap();
+        write!(svg, "{}", render_party(party, 0, UNIT * i as i32)).unwrap();
     }
 
     // Render output parties on the right
@@ -246,11 +242,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
         write!(
             svg,
             "{}",
-            render_party(
-                party,
-                (CANVA_WIDTH - UNIT) as usize,
-                (UNIT * i as i32) as usize
-            )
+            render_party(party, CANVA_WIDTH - UNIT, UNIT * i as i32)
         )
         .unwrap();
     }
@@ -260,11 +252,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
         write!(
             svg,
             "{}",
-            render_parameter(
-                input,
-                (CANVA_WIDTH / 4) as usize,
-                (UNIT * i as i32) as usize
-            )
+            render_parameter(input, CANVA_WIDTH / 4, UNIT * i as i32)
         )
         .unwrap();
     }
@@ -274,11 +262,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
         write!(
             svg,
             "{}",
-            render_parameter(
-                output,
-                (CANVA_WIDTH * 3 / 4) as usize,
-                (UNIT * i as i32) as usize
-            )
+            render_parameter(output, CANVA_WIDTH * 3 / 4, UNIT * i as i32)
         )
         .unwrap();
     }
@@ -290,9 +274,9 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
                 svg,
                     "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"rgb(255, 255, 255)\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
                 UNIT,
-                UNIT * (party_index as i32) + UNIT / 2,
+                UNIT * (party_index as i32) + (UNIT / 2),
                 CANVA_WIDTH / 4 - UNIT / 8,
-                UNIT * (input_index as i32) + UNIT / 2
+                UNIT * (input_index as i32) - (UNIT / 16)
             ).unwrap();
             }
         }
@@ -305,10 +289,10 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
                 write!(
                 svg,
                     "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"rgb(255, 255, 255)\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
-                CANVA_WIDTH * 3 / 4 + UNIT / 8,
-                UNIT * (output_index as i32) + UNIT / 2,
-                CANVA_WIDTH - UNIT,
-                UNIT * (party_index as i32) + UNIT / 2
+                CANVA_WIDTH / 2 + CANVA_WIDTH / 4 + UNIT / 8,
+                UNIT * (output_index as i32 + 1) - UNIT / 16,
+                (CANVA_WIDTH - UNIT),
+                (UNIT * (party_index as i32) + UNIT / 2)
             ).unwrap();
             }
         }
