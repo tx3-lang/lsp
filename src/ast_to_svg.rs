@@ -145,10 +145,10 @@ fn get_outputs(tx: &TxDef) -> Vec<Parameter> {
 // SVG Rendering Functions
 fn render_party(party: &Party, x: usize, y: usize) -> String {
     format!(
-        "<svg x=\"{x}\" y=\"{y}\" width=\"{unit}\" height=\"{unit}\" viewBox=\"0 0 {unit} {unit}\">
-            <image x=\"{image_x}%\" y=\"{image_y}%\" width=\"{image_width}%\" height=\"{image_height}%\"/>{image}
-            <text x=\"50%\" y=\"{text_y}%\" text-anchor=\"middle\" font-size=\"{font_size}%\" font-family=\"monospace\" fill=\"#fff\">{name}</text>
-        </svg>",
+        r#"<svg x="{x}" y="{y}" width="{unit}" height="{unit}" viewBox="0 0 {unit} {unit}">
+    <image x="{image_x}%" y="{image_y}%" width="{image_width}%" height="{image_height}%"/>{image}
+        <text x="50%" y="{text_y}%" text-anchor="middle" font-size="{font_size}%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
+    </svg>"#,
         x = x,
         y = y,
         unit = UNIT,
@@ -165,14 +165,14 @@ fn render_party(party: &Party, x: usize, y: usize) -> String {
 
 fn render_parameter(param: &Parameter, x: usize, y: usize) -> String {
     format!(
-        "<g transform=\"translate(-{unit},{half_unit})\">
-            <svg x=\"{x}\" y=\"{y}\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {unit} {quarter_unit}\">
-                <text x=\"50%\" y=\"10%\" text-anchor=\"middle\" dominant-baseline=\"hanging\" font-size=\"10%\" font-family=\"monospace\" fill=\"#fff\">{name}</text>
-                <line x1=\"20%\" y1=\"90%\" x2=\"80%\" y2=\"90%\" stroke=\"#fff\" stroke-width=\"0.25\"/>
-                <line x1=\"70%\" y1=\"80%\" x2=\"80%\" y2=\"90%\" stroke=\"#fff\" stroke-width=\"0.25\"/>
-                <line x1=\"70%\" y1=\"100%\" x2=\"80%\" y2=\"90%\" stroke=\"#fff\" stroke-width=\"0.25\"/>
-            </svg>
-        </g>",
+        r#"<g transform="translate(-{unit},{half_unit})">
+    <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {quarter_unit}">
+        <text x="50%" y="10%" text-anchor="middle" dominant-baseline="hanging" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
+        <line x1="20%" y1="90%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+        <line x1="70%" y1="80%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+        <line x1="70%" y1="100%" x2="80%" y2="90%" stroke="rgb(255, 255, 255)" stroke-width="0.25"/>
+    </svg>
+</g>"#,
         x = x,
         y = y,
         unit = UNIT,
@@ -186,12 +186,12 @@ fn render_parameter(param: &Parameter, x: usize, y: usize) -> String {
 
 fn render_tx(tx: &TxDef, x: usize, y: usize) -> String {
     format!(
-        "<g transform=\"translate(-{unit})\">
-            <svg x=\"{x}\" y=\"{y}\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {unit} {double_unit}\">
-                <rect width=\"100%\" height=\"100%\" rx=\"{corner}\" ry=\"{corner}\" fill-opacity=\"0\" stroke=\"white\" stroke-width=\"0.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>
-                <text x=\"50%\" y=\"50%\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-size=\"10%\" font-family=\"monospace\" fill=\"#fff\">{name}</text>
-            </svg>
-        </g>",
+        r#"<g transform="translate(-{unit})">
+    <svg x="{x}" y="{y}" width="{width}" height="{height}" viewBox="0 0 {unit} {double_unit}">
+        <rect width="100%" height="100%" rx="{corner}" ry="{corner}" fill-opacity="0" stroke="white" stroke-width="0.25" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-size="10%" font-family="monospace" fill="rgb(255, 255, 255)">{name}</text>
+    </svg>
+</g>"#,
         x = x,
         y = y,
         unit = UNIT,
@@ -202,6 +202,7 @@ fn render_tx(tx: &TxDef, x: usize, y: usize) -> String {
         name = tx.name
     )
 }
+
 pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
     let input_parties = get_input_parties(ast, tx);
     let output_parties = get_output_parties(ast, tx);
@@ -212,7 +213,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
 
     write!(
         svg,
-        r#"<svg width="100%" viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg">"#,
+        r#"<svg width="100%" viewBox="0 0 {width} {height}">"#,
         width = CANVA_WIDTH,
         height = CANVA_HEIGHT
     )
@@ -287,7 +288,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
             if let Some(party_index) = input_parties.iter().position(|p| &p.name == name) {
                 write!(
                 svg,
-                    "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"#fff\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
+                    "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"rgb(255, 255, 255)\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
                 UNIT,
                 UNIT * (party_index as i32) + UNIT / 2,
                 CANVA_WIDTH / 4 - UNIT / 8,
@@ -303,7 +304,7 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
             if let Some(party_index) = output_parties.iter().position(|p| &p.name == name) {
                 write!(
                 svg,
-                    "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"#fff\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
+                    "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"rgb(255, 255, 255)\" stroke-width=\"0.4\" stroke-dasharray=\"1,1\" stroke-opacity=\"0.5\"/>",
                 CANVA_WIDTH * 3 / 4 + UNIT / 8,
                 UNIT * (output_index as i32) + UNIT / 2,
                 CANVA_WIDTH - UNIT,
