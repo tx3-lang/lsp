@@ -227,11 +227,10 @@ pub fn tx_to_svg(ast: &Program, tx: &TxDef) -> String {
 
     write!(
         svg,
-        r#"<svg width="100%" viewBox="0 0 {width} {height}" class="my-16">"#,
+        r#"<svg width="100%" viewBox="0 0 {width} {height}" style="margin-block-end:64px; margin-block-start:64px; margin-bottom:64px; margin-left:0px; margin-right:0px; margin-top:64px;">"#,
         width = CANVA_WIDTH,
         height = CANVA_HEIGHT
-    )
-    .unwrap();
+    ).unwrap();
 
     // Render transaction box in the center
     write!(svg, "{}", render_tx(tx, CANVA_WIDTH / 2, 0)).unwrap();
