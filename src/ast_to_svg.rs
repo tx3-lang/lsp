@@ -66,6 +66,7 @@ fn get_icon_svg(party_type: &PartyType, x: &i32, y: &i32, width: &i32, height: &
 
 fn get_input_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
     let mut names = std::collections::HashSet::new();
+
     for input in &tx.inputs {
         for field in &input.fields {
             if let InputBlockField::From(address_expr) = field {
@@ -75,16 +76,23 @@ fn get_input_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
             }
         }
     }
-    names
+
+    let mut parties: Vec<Party> = names
         .into_iter()
         .map(|name| Party {
             name: name.clone(),
             party_type: infer_party_type(ast, &name),
         })
-        .collect()
+        .collect();
+
+    parties.sort_by_key(|p| p.name.clone());
+
+    parties
 }
+
 fn get_output_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
     let mut names = std::collections::HashSet::new();
+
     for output in &tx.outputs {
         for field in &output.fields {
             if let OutputBlockField::To(address_expr) = field {
@@ -94,13 +102,18 @@ fn get_output_parties(ast: &Program, tx: &TxDef) -> Vec<Party> {
             }
         }
     }
-    names
+
+    let mut parties: Vec<Party> = names
         .into_iter()
         .map(|name| Party {
             name: name.clone(),
             party_type: infer_party_type(ast, &name),
         })
-        .collect()
+        .collect();
+
+    parties.sort_by_key(|p| p.name.clone());
+
+    parties
 }
 
 fn get_inputs(tx: &TxDef) -> Vec<Parameter> {
