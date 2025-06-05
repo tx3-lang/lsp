@@ -1,7 +1,7 @@
 use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
-use crate::{cmds, span_to_lsp_range, Context};
+use crate::{cmds, position_to_offset, span_contains, span_to_lsp_range, Context};
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Context {
@@ -58,31 +58,130 @@ impl LanguageServer for Context {
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        // Get the position where the user is hovering
+        let uri = &params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Here you would typically:
-        // 1. Parse the document to identify the symbol at the hover position
-        // 2. Look up information about that symbol
-        // 3. Return a Hover object with the information
+        let document = self.documents.get(uri);
+        if let Some(document) = document {
+            let text = document.value().to_string();
 
-        // For now, let's return a simple example hover
-        Ok(Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: "This is a symbol hover example".to_string(),
-            }),
-            range: Some(Range {
-                start: Position {
-                    line: position.line,
-                    character: position.character,
-                },
-                end: Position {
-                    line: position.line,
-                    character: position.character + 1,
-                },
-            }),
-        }))
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let offset = position_to_offset(&text, position);
+
+            for party in &ast.parties {
+                if span_contains(&party.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!(
+                                "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
+                                party.name
+                            ),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &party.span)),
+                    }));
+                }
+            }
+
+            for policy in &ast.policies {
+                if span_contains(&policy.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!("**Policy**: `{}`\n\nA policy definition.", policy.name),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &policy.span)),
+                    }));
+                }
+            }
+
+            for tx in &ast.txs {
+                for input in &tx.inputs {
+                    if span_contains(&input.span, offset) {
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**Input**: `{}`\n\nTransaction input.", input.name),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &input.span)),
+                        }));
+                    }
+                }
+
+                for output in &tx.outputs {
+                    if span_contains(&output.span, offset) {
+                        let default_output = "output".to_string();
+                        let name = output.name.as_ref().unwrap_or(&default_output);
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**Output**: `{}`\n\nTransaction output.", name),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &output.span)),
+                        }));
+                    }
+                }
+
+                if span_contains(&tx.parameters.span, offset) {
+                    for param in &tx.parameters.parameters {
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!(
+                                    "**Parameter**: `{}`\n\n**Type**: `{:?}`",
+                                    param.name, param.r#type
+                                ),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &tx.parameters.span)),
+                        }));
+                    }
+                }
+
+                if span_contains(&tx.span, offset) {
+                    let mut hover_text = format!("**Transaction**: `{}`\n\n", tx.name);
+
+                    if !tx.parameters.parameters.is_empty() {
+                        hover_text.push_str("**Parameters**:\n");
+                        for param in &tx.parameters.parameters {
+                            hover_text
+                                .push_str(&format!("- `{}`: `{:?}`\n", param.name, param.r#type));
+                        }
+                        hover_text.push_str("\n");
+                    }
+
+                    if !tx.inputs.is_empty() {
+                        hover_text.push_str("**Inputs**:\n");
+                        for input in &tx.inputs {
+                            hover_text.push_str(&format!("- `{}`\n", input.name));
+                        }
+                        hover_text.push_str("\n");
+                    }
+
+                    if !tx.outputs.is_empty() {
+                        hover_text.push_str("**Outputs**:\n");
+                        for output in &tx.outputs {
+                            let default_output = "output".to_string();
+                            let name = output.name.as_ref().unwrap_or(&default_output);
+                            hover_text.push_str(&format!("- `{}`\n", name));
+                        }
+                    }
+
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: hover_text,
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &tx.span)),
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     // TODO: Add error handling and improve

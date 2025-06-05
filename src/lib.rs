@@ -62,6 +62,22 @@ pub fn char_index_to_line_col(rope: &Rope, idx: usize) -> (usize, usize) {
     (line, col)
 }
 
+pub fn position_to_offset(text: &str, position: Position) -> usize {
+    let mut offset = 0;
+    for (line_num, line) in text.lines().enumerate() {
+        if line_num == position.line as usize {
+            offset += position.character.min(line.len() as u32) as usize;
+            break;
+        }
+        offset += line.len() + 1;
+    }
+    offset
+}
+
+pub fn span_contains(span: &tx3_lang::ast::Span, offset: usize) -> bool {
+    offset >= span.start && offset < span.end
+}
+
 pub fn span_to_lsp_range(rope: &Rope, loc: &tx3_lang::ast::Span) -> Range {
     let (start_line, start_col) = char_index_to_line_col(rope, loc.start);
     let (end_line, end_col) = char_index_to_line_col(rope, loc.end);
