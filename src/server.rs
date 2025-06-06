@@ -75,6 +75,7 @@ impl LanguageServer for Context {
                         })));
                     }
                 }
+
                 for policy in &ast.policies {
                     if policy.name == identifier {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
@@ -83,13 +84,44 @@ impl LanguageServer for Context {
                         })));
                     }
                 }
+
                 for tx in &ast.txs {
                     if span_contains(&tx.span, offset) {
+                        // Check if it's a parameter
                         for param in &tx.parameters.parameters {
                             if param.name == identifier {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: uri.clone(),
                                     range: span_to_lsp_range(document.value(), &tx.parameters.span),
+                                })));
+                            }
+                        }
+
+                        for input in &tx.inputs {
+                            if input.name == identifier {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &input.span),
+                                })));
+                            }
+                        }
+
+                        for output in &tx.outputs {
+                            if let Some(output_name) = &output.name {
+                                if output_name == &identifier {
+                                    return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                        uri: uri.clone(),
+                                        range: span_to_lsp_range(document.value(), &output.span),
+                                    })));
+                                }
+                            }
+                        }
+
+                        for reference in &tx.references {
+                            if reference.name == identifier {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &reference.span),
                                 })));
                             }
                         }
