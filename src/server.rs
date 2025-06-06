@@ -1,7 +1,9 @@
 use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
-use crate::{cmds, position_to_offset, span_contains, span_to_lsp_range, Context};
+use crate::{
+    cmds, get_identifier_at_position, position_to_offset, span_contains, span_to_lsp_range, Context,
+};
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Context {
@@ -46,9 +48,56 @@ impl LanguageServer for Context {
 
     async fn goto_definition(
         &self,
-        _: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        // Return None for now, indicating no definition found
+        let uri = &params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+
+        let document = self.documents.get(uri);
+        if let Some(document) = document {
+            let text = document.value().to_string();
+
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let offset = position_to_offset(&text, position);
+
+            let identifier_at_position = get_identifier_at_position(&text, offset);
+
+            if let Some(identifier) = identifier_at_position {
+                for party in &ast.parties {
+                    if party.name == identifier {
+                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                            uri: uri.clone(),
+                            range: span_to_lsp_range(document.value(), &party.span),
+                        })));
+                    }
+                }
+                for policy in &ast.policies {
+                    if policy.name == identifier {
+                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                            uri: uri.clone(),
+                            range: span_to_lsp_range(document.value(), &policy.span),
+                        })));
+                    }
+                }
+                for tx in &ast.txs {
+                    if span_contains(&tx.span, offset) {
+                        for param in &tx.parameters.parameters {
+                            if param.name == identifier {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &tx.parameters.span),
+                                })));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(None)
     }
 
