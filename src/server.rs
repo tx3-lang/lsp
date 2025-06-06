@@ -87,7 +87,6 @@ impl LanguageServer for Context {
 
                 for tx in &ast.txs {
                     if span_contains(&tx.span, offset) {
-                        // Check if it's a parameter
                         for param in &tx.parameters.parameters {
                             if param.name == identifier {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {

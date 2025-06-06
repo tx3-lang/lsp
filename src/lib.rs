@@ -74,9 +74,8 @@ pub fn position_to_offset(text: &str, position: Position) -> usize {
     offset
 }
 
-// REVIEW
+// TODO: Find the smallest span at the offset in the AST
 pub fn get_identifier_at_position(text: &str, offset: usize) -> Option<String> {
-    // Find word boundaries around the offset
     let chars: Vec<char> = text.chars().collect();
 
     if offset >= chars.len() {
