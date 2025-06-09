@@ -158,6 +158,187 @@ pub struct Context {
 }
 
 impl Context {
+    fn collect_semantic_tokens(
+        &self,
+        ast: &tx3_lang::ast::Program,
+        rope: &Rope,
+    ) -> Vec<SemanticToken> {
+        // Token type indices based on the legend order
+        const TOKEN_KEYWORD: u32 = 0;
+        const TOKEN_TYPE: u32 = 1;
+        const TOKEN_PARAMETER: u32 = 2;
+        const TOKEN_VARIABLE: u32 = 3;
+        const TOKEN_FUNCTION: u32 = 4;
+        const TOKEN_CLASS: u32 = 5;
+        const TOKEN_PROPERTY: u32 = 6;
+        const TOKEN_PARTY: u32 = 7;
+        const TOKEN_POLICY: u32 = 8;
+        const TOKEN_TRANSACTION: u32 = 9;
+        const TOKEN_INPUT: u32 = 10;
+        const TOKEN_OUTPUT: u32 = 11;
+        const TOKEN_REFERENCE: u32 = 12;
+
+        // Token modifiers
+        const MOD_DECLARATION: u32 = 1 << 0;
+        const MOD_DEFINITION: u32 = 1 << 1;
+
+        #[derive(Debug, Clone)]
+        struct TokenInfo {
+            range: Range,
+            token_type: u32,
+            token_modifiers: u32,
+        }
+
+        let mut token_infos: Vec<TokenInfo> = Vec::new();
+
+        // TODO: Use the span function to get the identifier ranges
+        let extract_identifier_after_keyword =
+            |span: &tx3_lang::ast::Span, keyword: &str, identifier: &str| -> Option<Range> {
+                let start_char = span.start;
+                let end_char = span.end;
+
+                if start_char >= end_char {
+                    return None;
+                }
+
+                let text_slice = rope.slice(start_char..end_char);
+                let text = text_slice.to_string();
+
+                // Find keyword first
+                if let Some(keyword_pos) = text.find(keyword) {
+                    // Look for the identifier after the keyword
+                    let after_keyword = &text[keyword_pos + keyword.len()..];
+                    if let Some(id_pos) = after_keyword.find(identifier) {
+                        let absolute_id_start = start_char + keyword_pos + keyword.len() + id_pos;
+                        let absolute_id_end = absolute_id_start + identifier.len();
+
+                        return Some(span_to_lsp_range(
+                            rope,
+                            &tx3_lang::ast::Span::new(absolute_id_start, absolute_id_end),
+                        ));
+                    }
+                }
+
+                // If we can't find keyword, just try to find the identifier
+                if let Some(id_pos) = text.find(identifier) {
+                    let absolute_id_start = start_char + id_pos;
+                    let absolute_id_end = absolute_id_start + identifier.len();
+
+                    return Some(span_to_lsp_range(
+                        rope,
+                        &tx3_lang::ast::Span::new(absolute_id_start, absolute_id_end),
+                    ));
+                }
+
+                None
+            };
+
+        // Parties
+        for party in &ast.parties {
+            if let Some(range) = extract_identifier_after_keyword(&party.span, "party", &party.name)
+            {
+                token_infos.push(TokenInfo {
+                    range,
+                    token_type: TOKEN_PARTY,
+                    token_modifiers: MOD_DECLARATION,
+                });
+            }
+        }
+
+        // Policies
+        for policy in &ast.policies {
+            if let Some(range) =
+                extract_identifier_after_keyword(&policy.span, "policy", &policy.name)
+            {
+                token_infos.push(TokenInfo {
+                    range,
+                    token_type: TOKEN_POLICY,
+                    token_modifiers: MOD_DECLARATION,
+                });
+            }
+        }
+
+        // Types
+        for type_def in &ast.types {
+            if let Some(range) =
+                extract_identifier_after_keyword(&type_def.span, "type", &type_def.name)
+            {
+                token_infos.push(TokenInfo {
+                    range,
+                    token_type: TOKEN_TYPE,
+                    token_modifiers: MOD_DECLARATION,
+                });
+            }
+        }
+
+        // Assets
+        for asset in &ast.assets {
+            if let Some(range) = extract_identifier_after_keyword(&asset.span, "asset", &asset.name)
+            {
+                token_infos.push(TokenInfo {
+                    range,
+                    token_type: TOKEN_CLASS,
+                    token_modifiers: MOD_DECLARATION,
+                });
+            }
+        }
+
+        // Transactions
+        for tx in &ast.txs {
+            if let Some(range) = extract_identifier_after_keyword(&tx.span, "tx", &tx.name) {
+                token_infos.push(TokenInfo {
+                    range,
+                    token_type: TOKEN_TRANSACTION,
+                    token_modifiers: MOD_DECLARATION,
+                });
+            }
+        }
+
+        // Sort tokens by position
+        token_infos.sort_by(|a, b| match a.range.start.line.cmp(&b.range.start.line) {
+            std::cmp::Ordering::Equal => a.range.start.character.cmp(&b.range.start.character),
+            other => other,
+        });
+
+        // Remove duplicates
+        token_infos.dedup_by(|a, b| a.range.start == b.range.start && a.range.end == b.range.end);
+
+        // Convert to semantic tokens with deltas
+        let mut semantic_tokens = Vec::new();
+        let mut prev_line = 0;
+        let mut prev_start = 0;
+
+        for token_info in token_infos {
+            let line = token_info.range.start.line;
+            let start = token_info.range.start.character;
+            let length = token_info.range.end.character.saturating_sub(start);
+
+            if length == 0 {
+                continue;
+            }
+
+            let delta_line = line.saturating_sub(prev_line);
+            let delta_start = if delta_line == 0 {
+                start.saturating_sub(prev_start)
+            } else {
+                start
+            };
+
+            semantic_tokens.push(SemanticToken {
+                delta_line,
+                delta_start,
+                length,
+                token_type: token_info.token_type,
+                token_modifiers_bitset: token_info.token_modifiers,
+            });
+
+            prev_line = line;
+            prev_start = start;
+        }
+
+        semantic_tokens
+    }
+
     pub fn new_for_client(client: Client) -> Self {
         Self {
             client,

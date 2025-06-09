@@ -20,6 +20,39 @@ impl LanguageServer for Context {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            work_done_progress_options: WorkDoneProgressOptions::default(),
+                            legend: SemanticTokensLegend {
+                                token_types: vec![
+                                    SemanticTokenType::KEYWORD,
+                                    SemanticTokenType::TYPE,
+                                    SemanticTokenType::PARAMETER,
+                                    SemanticTokenType::VARIABLE,
+                                    SemanticTokenType::FUNCTION,
+                                    SemanticTokenType::CLASS,
+                                    SemanticTokenType::PROPERTY,
+                                    // Custom token types for tx3
+                                    SemanticTokenType::new("party"),
+                                    SemanticTokenType::new("policy"),
+                                    SemanticTokenType::new("transaction"),
+                                    SemanticTokenType::new("input"),
+                                    SemanticTokenType::new("output"),
+                                    SemanticTokenType::new("reference"),
+                                ],
+                                token_modifiers: vec![
+                                    SemanticTokenModifier::DECLARATION,
+                                    SemanticTokenModifier::DEFINITION,
+                                    SemanticTokenModifier::READONLY,
+                                    SemanticTokenModifier::STATIC,
+                                ],
+                            },
+                            range: Some(true),
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                        },
+                    ),
+                ),
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: vec!["generate-tir".to_string(), "generate-ast".to_string()],
                     work_done_progress_options: WorkDoneProgressOptions {
@@ -44,6 +77,53 @@ impl LanguageServer for Context {
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
         // Return empty completion list for now
         Ok(Some(CompletionResponse::Array(vec![])))
+    }
+
+    // REVIEW
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = &params.text_document.uri;
+        let document = self.documents.get(uri);
+
+        if let Some(document) = document {
+            let text = document.value().to_string();
+            let rope = document.value();
+
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let tokens = self.collect_semantic_tokens(&ast, rope);
+
+            Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: tokens,
+            })))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn semantic_tokens_range(
+        &self,
+        params: SemanticTokensRangeParams,
+    ) -> Result<Option<SemanticTokensRangeResult>> {
+        // TODO: optimize this for the specific range
+        let full_params = SemanticTokensParams {
+            text_document: params.text_document,
+            work_done_progress_params: params.work_done_progress_params,
+            partial_result_params: params.partial_result_params,
+        };
+
+        self.semantic_tokens_full(full_params).await.map(|result| {
+            result.map(|tokens| match tokens {
+                SemanticTokensResult::Tokens(t) => SemanticTokensRangeResult::Tokens(t),
+                SemanticTokensResult::Partial(p) => SemanticTokensRangeResult::Partial(p),
+            })
+        })
     }
 
     async fn goto_definition(
