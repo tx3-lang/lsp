@@ -5,7 +5,10 @@ use tx3_lsp::Context;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct Args {}
+struct Args {
+    #[arg(short, long)]
+    stdio: bool,
+}
 
 #[tokio::main]
 async fn main() {
@@ -22,5 +25,7 @@ async fn main() {
         .map_response(|response| response)
         .service(service);
 
-    Server::new(stdin, stdout, socket).serve(service).await;
+    let server = Server::new(stdin, stdout, socket);
+
+    server.serve(service).await;
 }
