@@ -2,7 +2,9 @@ use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
 use crate::{
-    cmds, get_identifier_at_position, position_to_offset, span_contains, span_to_lsp_range, Context,
+    cmds, position_to_offset, span_contains, span_to_lsp_range,
+    visitor::{find_symbol_in_program, SymbolAtOffset},
+    Context,
 };
 
 #[tower_lsp::async_trait]
@@ -144,11 +146,13 @@ impl LanguageServer for Context {
 
             let offset = position_to_offset(&text, position);
 
-            let identifier_at_position = get_identifier_at_position(&text, offset);
+            if let Some(symbol) = find_symbol_in_program(&ast, offset) {
+                let identifier = match symbol {
+                    SymbolAtOffset::Identifier(x) => x,
+                };
 
-            if let Some(identifier) = identifier_at_position {
                 for party in &ast.parties {
-                    if party.name == identifier {
+                    if party.name == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                             uri: uri.clone(),
                             range: span_to_lsp_range(document.value(), &party.span),
@@ -157,7 +161,7 @@ impl LanguageServer for Context {
                 }
 
                 for policy in &ast.policies {
-                    if policy.name == identifier {
+                    if policy.name == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                             uri: uri.clone(),
                             range: span_to_lsp_range(document.value(), &policy.span),
@@ -168,7 +172,7 @@ impl LanguageServer for Context {
                 for tx in &ast.txs {
                     if span_contains(&tx.span, offset) {
                         for param in &tx.parameters.parameters {
-                            if param.name == identifier {
+                            if param.name == identifier.value {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: uri.clone(),
                                     range: span_to_lsp_range(document.value(), &tx.parameters.span),
@@ -177,7 +181,7 @@ impl LanguageServer for Context {
                         }
 
                         for input in &tx.inputs {
-                            if input.name == identifier {
+                            if input.name == identifier.value {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: uri.clone(),
                                     range: span_to_lsp_range(document.value(), &input.span),
@@ -187,7 +191,7 @@ impl LanguageServer for Context {
 
                         for output in &tx.outputs {
                             if let Some(output_name) = &output.name {
-                                if output_name == &identifier {
+                                if output_name == &identifier.value {
                                     return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                         uri: uri.clone(),
                                         range: span_to_lsp_range(document.value(), &output.span),
@@ -197,7 +201,7 @@ impl LanguageServer for Context {
                         }
 
                         for reference in &tx.references {
-                            if reference.name == identifier {
+                            if reference.name == identifier.value {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: uri.clone(),
                                     range: span_to_lsp_range(document.value(), &reference.span),

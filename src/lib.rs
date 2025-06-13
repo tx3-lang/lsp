@@ -10,6 +10,7 @@ use tx3_lang::Protocol;
 
 mod cmds;
 mod server;
+mod visitor;
 
 #[derive(Error, Debug)]
 pub enum Error {
