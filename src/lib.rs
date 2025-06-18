@@ -191,107 +191,99 @@ impl Context {
         }
 
         let mut token_infos: Vec<TokenInfo> = Vec::new();
+        let text = rope.to_string();
 
-        // TODO: Use the span function to get the identifier ranges
-        let extract_identifier_after_keyword =
-            |span: &tx3_lang::ast::Span, keyword: &str, identifier: &str| -> Option<Range> {
-                let start_char = span.start;
-                let end_char = span.end;
+        // Find all identifiers in the program
+        let mut processed_spans = std::collections::HashSet::new();
 
-                if start_char >= end_char {
-                    return None;
-                }
+        // We need to scan each position to find symbols using the same mechanism as hover and goto
+        for offset in 0..text.len() {
+            if let Some(symbol) = crate::visitor::find_symbol_in_program(ast, offset) {
+                match symbol {
+                    crate::visitor::SymbolAtOffset::Identifier(identifier) => {
+                        // Skip if we've already processed this exact span
+                        let span_key = (identifier.span.start, identifier.span.end);
+                        if processed_spans.contains(&span_key) {
+                            continue;
+                        }
+                        processed_spans.insert(span_key);
 
-                let text_slice = rope.slice(start_char..end_char);
-                let text = text_slice.to_string();
+                        // Determine the token type based on the context
+                        let token_type =
+                            if ast.parties.iter().any(|p| p.name.value == identifier.value) {
+                                TOKEN_PARTY
+                            } else if ast.policies.iter().any(|p| p.name == identifier.value) {
+                                TOKEN_POLICY
+                            } else if ast.types.iter().any(|t| t.name == identifier.value) {
+                                TOKEN_TYPE
+                            } else if ast.assets.iter().any(|a| a.name == identifier.value) {
+                                TOKEN_CLASS
+                            } else {
+                                // Check if it's a transaction or component of a transaction
+                                let mut found_type = None;
 
-                // Find keyword first
-                if let Some(keyword_pos) = text.find(keyword) {
-                    // Look for the identifier after the keyword
-                    let after_keyword = &text[keyword_pos + keyword.len()..];
-                    if let Some(id_pos) = after_keyword.find(identifier) {
-                        let absolute_id_start = start_char + keyword_pos + keyword.len() + id_pos;
-                        let absolute_id_end = absolute_id_start + identifier.len();
+                                for tx in &ast.txs {
+                                    if tx.name == identifier.value {
+                                        found_type = Some(TOKEN_TRANSACTION);
+                                        break;
+                                    }
 
-                        return Some(span_to_lsp_range(
-                            rope,
-                            &tx3_lang::ast::Span::new(absolute_id_start, absolute_id_end),
-                        ));
+                                    if crate::span_contains(&tx.span, offset) {
+                                        // Check if it's a parameter, input, output, or reference
+                                        for param in &tx.parameters.parameters {
+                                            if param.name == identifier.value {
+                                                found_type = Some(TOKEN_PARAMETER);
+                                                break;
+                                            }
+                                        }
+
+                                        if found_type.is_none() {
+                                            for input in &tx.inputs {
+                                                if input.name == identifier.value {
+                                                    found_type = Some(TOKEN_INPUT);
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if found_type.is_none() {
+                                            for output in &tx.outputs {
+                                                if let Some(output_name) = &output.name {
+                                                    if *output_name == identifier.value {
+                                                        found_type = Some(TOKEN_OUTPUT);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if found_type.is_none() {
+                                            for reference in &tx.references {
+                                                if reference.name == identifier.value {
+                                                    found_type = Some(TOKEN_REFERENCE);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if found_type.is_some() {
+                                        break;
+                                    }
+                                }
+
+                                // If still not found, treat as a variable
+                                found_type.unwrap_or(TOKEN_VARIABLE)
+                            };
+
+                        // Add the token info
+                        token_infos.push(TokenInfo {
+                            range: crate::span_to_lsp_range(rope, &identifier.span),
+                            token_type,
+                            token_modifiers: MOD_DECLARATION,
+                        });
                     }
                 }
-
-                // If we can't find keyword, just try to find the identifier
-                if let Some(id_pos) = text.find(identifier) {
-                    let absolute_id_start = start_char + id_pos;
-                    let absolute_id_end = absolute_id_start + identifier.len();
-
-                    return Some(span_to_lsp_range(
-                        rope,
-                        &tx3_lang::ast::Span::new(absolute_id_start, absolute_id_end),
-                    ));
-                }
-
-                None
-            };
-
-        // Parties
-        for party in &ast.parties {
-            if let Some(range) = extract_identifier_after_keyword(&party.span, "party", &party.name)
-            {
-                token_infos.push(TokenInfo {
-                    range,
-                    token_type: TOKEN_PARTY,
-                    token_modifiers: MOD_DECLARATION,
-                });
-            }
-        }
-
-        // Policies
-        for policy in &ast.policies {
-            if let Some(range) =
-                extract_identifier_after_keyword(&policy.span, "policy", &policy.name)
-            {
-                token_infos.push(TokenInfo {
-                    range,
-                    token_type: TOKEN_POLICY,
-                    token_modifiers: MOD_DECLARATION,
-                });
-            }
-        }
-
-        // Types
-        for type_def in &ast.types {
-            if let Some(range) =
-                extract_identifier_after_keyword(&type_def.span, "type", &type_def.name)
-            {
-                token_infos.push(TokenInfo {
-                    range,
-                    token_type: TOKEN_TYPE,
-                    token_modifiers: MOD_DECLARATION,
-                });
-            }
-        }
-
-        // Assets
-        for asset in &ast.assets {
-            if let Some(range) = extract_identifier_after_keyword(&asset.span, "asset", &asset.name)
-            {
-                token_infos.push(TokenInfo {
-                    range,
-                    token_type: TOKEN_CLASS,
-                    token_modifiers: MOD_DECLARATION,
-                });
-            }
-        }
-
-        // Transactions
-        for tx in &ast.txs {
-            if let Some(range) = extract_identifier_after_keyword(&tx.span, "tx", &tx.name) {
-                token_infos.push(TokenInfo {
-                    range,
-                    token_type: TOKEN_TRANSACTION,
-                    token_modifiers: MOD_DECLARATION,
-                });
             }
         }
 

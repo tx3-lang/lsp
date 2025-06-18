@@ -152,7 +152,7 @@ impl LanguageServer for Context {
                 };
 
                 for party in &ast.parties {
-                    if party.name == identifier.value {
+                    if party.name.value == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                             uri: uri.clone(),
                             range: span_to_lsp_range(document.value(), &party.span),
@@ -243,7 +243,7 @@ impl LanguageServer for Context {
                             kind: MarkupKind::Markdown,
                             value: format!(
                                 "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
-                                party.name
+                                party.name.value
                             ),
                         }),
                         range: Some(span_to_lsp_range(document.value(), &party.span)),
@@ -383,7 +383,7 @@ impl LanguageServer for Context {
                 let ast = ast.unwrap();
                 for party in ast.parties {
                     symbols.push(make_symbol(
-                        party.name.clone(),
+                        party.name.value.clone(),
                         "Party".to_string(),
                         SymbolKind::OBJECT,
                         span_to_lsp_range(document.value(), &party.span),
