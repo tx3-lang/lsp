@@ -193,10 +193,8 @@ impl Context {
         let mut token_infos: Vec<TokenInfo> = Vec::new();
         let text = rope.to_string();
 
-        // Find all identifiers in the program
         let mut processed_spans = std::collections::HashSet::new();
 
-        // We need to scan each position to find symbols using the same mechanism as hover and goto
         for offset in 0..text.len() {
             if let Some(symbol) = crate::visitor::find_symbol_in_program(ast, offset) {
                 match symbol {
@@ -208,7 +206,6 @@ impl Context {
                         }
                         processed_spans.insert(span_key);
 
-                        // Determine the token type based on the context
                         let token_type = if ast.parties.iter().any(|p| p.name == identifier.value) {
                             TOKEN_PARTY
                         } else if ast.policies.iter().any(|p| p.name == identifier.value) {
@@ -228,7 +225,6 @@ impl Context {
                                 }
 
                                 if crate::span_contains(&tx.span, offset) {
-                                    // Check if it's a parameter, input, output, or reference
                                     for param in &tx.parameters.parameters {
                                         if param.name == identifier.value {
                                             found_type = Some(TOKEN_PARAMETER);
@@ -270,12 +266,9 @@ impl Context {
                                     break;
                                 }
                             }
-
-                            // If still not found, treat as a variable
                             found_type.unwrap_or(TOKEN_VARIABLE)
                         };
 
-                        // Add the token info
                         token_infos.push(TokenInfo {
                             range: crate::span_to_lsp_range(rope, &identifier.span),
                             token_type,
@@ -285,17 +278,13 @@ impl Context {
                 }
             }
         }
-
-        // Sort tokens by position
         token_infos.sort_by(|a, b| match a.range.start.line.cmp(&b.range.start.line) {
             std::cmp::Ordering::Equal => a.range.start.character.cmp(&b.range.start.character),
             other => other,
         });
 
-        // Remove duplicates
         token_infos.dedup_by(|a, b| a.range.start == b.range.start && a.range.end == b.range.end);
 
-        // Convert to semantic tokens with deltas
         let mut semantic_tokens = Vec::new();
         let mut prev_line = 0;
         let mut prev_start = 0;
