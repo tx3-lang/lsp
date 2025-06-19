@@ -1,7 +1,11 @@
 use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
 
-use crate::{cmds, span_to_lsp_range, Context};
+use crate::{
+    cmds, position_to_offset, span_contains, span_to_lsp_range,
+    visitor::{find_symbol_in_program, SymbolAtOffset},
+    Context,
+};
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Context {
@@ -18,6 +22,40 @@ impl LanguageServer for Context {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                semantic_tokens_provider: Some(
+                    SemanticTokensServerCapabilities::SemanticTokensOptions(
+                        SemanticTokensOptions {
+                            work_done_progress_options: WorkDoneProgressOptions::default(),
+                            legend: SemanticTokensLegend {
+                                token_types: vec![
+                                    // SemanticTokenType::KEYWORD,
+                                    SemanticTokenType::TYPE,
+                                    SemanticTokenType::PARAMETER,
+                                    SemanticTokenType::VARIABLE,
+                                    // SemanticTokenType::FUNCTION,
+                                    SemanticTokenType::CLASS,
+                                    // SemanticTokenType::PROPERTY,
+
+                                    // Custom token types for tx3
+                                    SemanticTokenType::new("party"),
+                                    SemanticTokenType::new("policy"),
+                                    SemanticTokenType::new("transaction"),
+                                    SemanticTokenType::new("input"),
+                                    SemanticTokenType::new("output"),
+                                    SemanticTokenType::new("reference"),
+                                ],
+                                token_modifiers: vec![
+                                    SemanticTokenModifier::DECLARATION,
+                                    // SemanticTokenModifier::DEFINITION,
+                                    SemanticTokenModifier::READONLY,
+                                    SemanticTokenModifier::STATIC,
+                                ],
+                            },
+                            range: Some(true),
+                            full: Some(SemanticTokensFullOptions::Bool(true)),
+                        },
+                    ),
+                ),
                 execute_command_provider: Some(ExecuteCommandOptions {
                     commands: vec!["generate-tir".to_string(), "generate-ast".to_string()],
                     work_done_progress_options: WorkDoneProgressOptions {
@@ -44,11 +82,137 @@ impl LanguageServer for Context {
         Ok(Some(CompletionResponse::Array(vec![])))
     }
 
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        let uri = &params.text_document.uri;
+        let document = self.documents.get(uri);
+
+        if let Some(document) = document {
+            let text = document.value().to_string();
+            let rope = document.value();
+
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let tokens = self.collect_semantic_tokens(&ast, rope);
+
+            Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: tokens,
+            })))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn semantic_tokens_range(
+        &self,
+        params: SemanticTokensRangeParams,
+    ) -> Result<Option<SemanticTokensRangeResult>> {
+        // TODO: optimize this for the specific range
+        let full_params = SemanticTokensParams {
+            text_document: params.text_document,
+            work_done_progress_params: params.work_done_progress_params,
+            partial_result_params: params.partial_result_params,
+        };
+
+        self.semantic_tokens_full(full_params).await.map(|result| {
+            result.map(|tokens| match tokens {
+                SemanticTokensResult::Tokens(t) => SemanticTokensRangeResult::Tokens(t),
+                SemanticTokensResult::Partial(p) => SemanticTokensRangeResult::Partial(p),
+            })
+        })
+    }
+
     async fn goto_definition(
         &self,
-        _: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        // Return None for now, indicating no definition found
+        let uri = &params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+
+        let document = self.documents.get(uri);
+        if let Some(document) = document {
+            let text = document.value().to_string();
+
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let offset = position_to_offset(&text, position);
+
+            if let Some(symbol) = find_symbol_in_program(&ast, offset) {
+                let identifier = match symbol {
+                    SymbolAtOffset::Identifier(x) => x,
+                };
+
+                for party in &ast.parties {
+                    if party.name == identifier.value {
+                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                            uri: uri.clone(),
+                            range: span_to_lsp_range(document.value(), &party.span),
+                        })));
+                    }
+                }
+
+                for policy in &ast.policies {
+                    if policy.name == identifier.value {
+                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                            uri: uri.clone(),
+                            range: span_to_lsp_range(document.value(), &policy.span),
+                        })));
+                    }
+                }
+
+                for tx in &ast.txs {
+                    if span_contains(&tx.span, offset) {
+                        for param in &tx.parameters.parameters {
+                            if param.name == identifier.value {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &tx.parameters.span),
+                                })));
+                            }
+                        }
+
+                        for input in &tx.inputs {
+                            if input.name == identifier.value {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &input.span),
+                                })));
+                            }
+                        }
+
+                        for output in &tx.outputs {
+                            if let Some(output_name) = &output.name {
+                                if output_name == &identifier.value {
+                                    return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                        uri: uri.clone(),
+                                        range: span_to_lsp_range(document.value(), &output.span),
+                                    })));
+                                }
+                            }
+                        }
+
+                        for reference in &tx.references {
+                            if reference.name == identifier.value {
+                                return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                                    uri: uri.clone(),
+                                    range: span_to_lsp_range(document.value(), &reference.span),
+                                })));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(None)
     }
 
@@ -58,31 +222,130 @@ impl LanguageServer for Context {
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        // Get the position where the user is hovering
+        let uri = &params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Here you would typically:
-        // 1. Parse the document to identify the symbol at the hover position
-        // 2. Look up information about that symbol
-        // 3. Return a Hover object with the information
+        let document = self.documents.get(uri);
+        if let Some(document) = document {
+            let text = document.value().to_string();
 
-        // For now, let's return a simple example hover
-        Ok(Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: "This is a symbol hover example".to_string(),
-            }),
-            range: Some(Range {
-                start: Position {
-                    line: position.line,
-                    character: position.character,
-                },
-                end: Position {
-                    line: position.line,
-                    character: position.character + 1,
-                },
-            }),
-        }))
+            let ast = match tx3_lang::parsing::parse_string(text.as_str()) {
+                Ok(ast) => ast,
+                Err(_) => return Ok(None),
+            };
+
+            let offset = position_to_offset(&text, position);
+
+            for party in &ast.parties {
+                if span_contains(&party.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!(
+                                "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
+                                party.name
+                            ),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &party.span)),
+                    }));
+                }
+            }
+
+            for policy in &ast.policies {
+                if span_contains(&policy.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!("**Policy**: `{}`\n\nA policy definition.", policy.name),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &policy.span)),
+                    }));
+                }
+            }
+
+            for tx in &ast.txs {
+                for input in &tx.inputs {
+                    if span_contains(&input.span, offset) {
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**Input**: `{}`\n\nTransaction input.", input.name),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &input.span)),
+                        }));
+                    }
+                }
+
+                for output in &tx.outputs {
+                    if span_contains(&output.span, offset) {
+                        let default_output = "output".to_string();
+                        let name = output.name.as_ref().unwrap_or(&default_output);
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**Output**: `{}`\n\nTransaction output.", name),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &output.span)),
+                        }));
+                    }
+                }
+
+                if span_contains(&tx.parameters.span, offset) {
+                    for param in &tx.parameters.parameters {
+                        return Ok(Some(Hover {
+                            contents: HoverContents::Markup(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!(
+                                    "**Parameter**: `{}`\n\n**Type**: `{:?}`",
+                                    param.name, param.r#type
+                                ),
+                            }),
+                            range: Some(span_to_lsp_range(document.value(), &tx.parameters.span)),
+                        }));
+                    }
+                }
+
+                if span_contains(&tx.span, offset) {
+                    let mut hover_text = format!("**Transaction**: `{}`\n\n", tx.name);
+
+                    if !tx.parameters.parameters.is_empty() {
+                        hover_text.push_str("**Parameters**:\n");
+                        for param in &tx.parameters.parameters {
+                            hover_text
+                                .push_str(&format!("- `{}`: `{:?}`\n", param.name, param.r#type));
+                        }
+                        hover_text.push_str("\n");
+                    }
+
+                    if !tx.inputs.is_empty() {
+                        hover_text.push_str("**Inputs**:\n");
+                        for input in &tx.inputs {
+                            hover_text.push_str(&format!("- `{}`\n", input.name));
+                        }
+                        hover_text.push_str("\n");
+                    }
+
+                    if !tx.outputs.is_empty() {
+                        hover_text.push_str("**Outputs**:\n");
+                        for output in &tx.outputs {
+                            let default_output = "output".to_string();
+                            let name = output.name.as_ref().unwrap_or(&default_output);
+                            hover_text.push_str(&format!("- `{}`\n", name));
+                        }
+                    }
+
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: hover_text,
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &tx.span)),
+                    }));
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     // TODO: Add error handling and improve
