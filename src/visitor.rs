@@ -442,12 +442,9 @@ fn visit_record_field<'a>(
 }
 
 fn visit_party_def<'a>(
-    party: &'a tx3_lang::ast::PartyDef,
-    offset: usize,
+    _party: &'a tx3_lang::ast::PartyDef,
+    _offset: usize,
 ) -> Option<SymbolAtOffset<'a>> {
-    if in_span(&party.span, offset) {
-        return Some(SymbolAtOffset::Identifier(&party.name));
-    }
     None
 }
 

@@ -165,23 +165,23 @@ impl Context {
         rope: &Rope,
     ) -> Vec<SemanticToken> {
         // Token type indices based on the legend order
-        const TOKEN_KEYWORD: u32 = 0;
-        const TOKEN_TYPE: u32 = 1;
-        const TOKEN_PARAMETER: u32 = 2;
-        const TOKEN_VARIABLE: u32 = 3;
-        const TOKEN_FUNCTION: u32 = 4;
-        const TOKEN_CLASS: u32 = 5;
-        const TOKEN_PROPERTY: u32 = 6;
-        const TOKEN_PARTY: u32 = 7;
-        const TOKEN_POLICY: u32 = 8;
-        const TOKEN_TRANSACTION: u32 = 9;
-        const TOKEN_INPUT: u32 = 10;
-        const TOKEN_OUTPUT: u32 = 11;
-        const TOKEN_REFERENCE: u32 = 12;
+        // const TOKEN_KEYWORD: u32 = 0;
+        const TOKEN_TYPE: u32 = 0;
+        const TOKEN_PARAMETER: u32 = 1;
+        const TOKEN_VARIABLE: u32 = 2;
+        // const TOKEN_FUNCTION: u32 = 4;
+        const TOKEN_CLASS: u32 = 3;
+        // const TOKEN_PROPERTY: u32 = 6;
+        const TOKEN_PARTY: u32 = 4;
+        const TOKEN_POLICY: u32 = 5;
+        const TOKEN_TRANSACTION: u32 = 6;
+        const TOKEN_INPUT: u32 = 7;
+        const TOKEN_OUTPUT: u32 = 8;
+        const TOKEN_REFERENCE: u32 = 9;
 
         // Token modifiers
         const MOD_DECLARATION: u32 = 1 << 0;
-        const MOD_DEFINITION: u32 = 1 << 1;
+        // const MOD_DEFINITION: u32 = 1 << 1;
 
         #[derive(Debug, Clone)]
         struct TokenInfo {
@@ -209,72 +209,71 @@ impl Context {
                         processed_spans.insert(span_key);
 
                         // Determine the token type based on the context
-                        let token_type =
-                            if ast.parties.iter().any(|p| p.name.value == identifier.value) {
-                                TOKEN_PARTY
-                            } else if ast.policies.iter().any(|p| p.name == identifier.value) {
-                                TOKEN_POLICY
-                            } else if ast.types.iter().any(|t| t.name == identifier.value) {
-                                TOKEN_TYPE
-                            } else if ast.assets.iter().any(|a| a.name == identifier.value) {
-                                TOKEN_CLASS
-                            } else {
-                                // Check if it's a transaction or component of a transaction
-                                let mut found_type = None;
+                        let token_type = if ast.parties.iter().any(|p| p.name == identifier.value) {
+                            TOKEN_PARTY
+                        } else if ast.policies.iter().any(|p| p.name == identifier.value) {
+                            TOKEN_POLICY
+                        } else if ast.types.iter().any(|t| t.name == identifier.value) {
+                            TOKEN_TYPE
+                        } else if ast.assets.iter().any(|a| a.name == identifier.value) {
+                            TOKEN_CLASS
+                        } else {
+                            // Check if it's a transaction or component of a transaction
+                            let mut found_type = None;
 
-                                for tx in &ast.txs {
-                                    if tx.name == identifier.value {
-                                        found_type = Some(TOKEN_TRANSACTION);
-                                        break;
+                            for tx in &ast.txs {
+                                if tx.name == identifier.value {
+                                    found_type = Some(TOKEN_TRANSACTION);
+                                    break;
+                                }
+
+                                if crate::span_contains(&tx.span, offset) {
+                                    // Check if it's a parameter, input, output, or reference
+                                    for param in &tx.parameters.parameters {
+                                        if param.name == identifier.value {
+                                            found_type = Some(TOKEN_PARAMETER);
+                                            break;
+                                        }
                                     }
 
-                                    if crate::span_contains(&tx.span, offset) {
-                                        // Check if it's a parameter, input, output, or reference
-                                        for param in &tx.parameters.parameters {
-                                            if param.name == identifier.value {
-                                                found_type = Some(TOKEN_PARAMETER);
+                                    if found_type.is_none() {
+                                        for input in &tx.inputs {
+                                            if input.name == identifier.value {
+                                                found_type = Some(TOKEN_INPUT);
                                                 break;
                                             }
                                         }
+                                    }
 
-                                        if found_type.is_none() {
-                                            for input in &tx.inputs {
-                                                if input.name == identifier.value {
-                                                    found_type = Some(TOKEN_INPUT);
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if found_type.is_none() {
-                                            for output in &tx.outputs {
-                                                if let Some(output_name) = &output.name {
-                                                    if *output_name == identifier.value {
-                                                        found_type = Some(TOKEN_OUTPUT);
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if found_type.is_none() {
-                                            for reference in &tx.references {
-                                                if reference.name == identifier.value {
-                                                    found_type = Some(TOKEN_REFERENCE);
+                                    if found_type.is_none() {
+                                        for output in &tx.outputs {
+                                            if let Some(output_name) = &output.name {
+                                                if *output_name == identifier.value {
+                                                    found_type = Some(TOKEN_OUTPUT);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
 
-                                    if found_type.is_some() {
-                                        break;
+                                    if found_type.is_none() {
+                                        for reference in &tx.references {
+                                            if reference.name == identifier.value {
+                                                found_type = Some(TOKEN_REFERENCE);
+                                                break;
+                                            }
+                                        }
                                     }
                                 }
 
-                                // If still not found, treat as a variable
-                                found_type.unwrap_or(TOKEN_VARIABLE)
-                            };
+                                if found_type.is_some() {
+                                    break;
+                                }
+                            }
+
+                            // If still not found, treat as a variable
+                            found_type.unwrap_or(TOKEN_VARIABLE)
+                        };
 
                         // Add the token info
                         token_infos.push(TokenInfo {
