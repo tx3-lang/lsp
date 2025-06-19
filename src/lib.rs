@@ -75,31 +75,6 @@ pub fn position_to_offset(text: &str, position: Position) -> usize {
     offset
 }
 
-// TODO: Find the smallest span at the offset in the AST
-pub fn get_identifier_at_position(text: &str, offset: usize) -> Option<String> {
-    let chars: Vec<char> = text.chars().collect();
-
-    if offset >= chars.len() {
-        return None;
-    }
-
-    let mut start = offset;
-    while start > 0 && (chars[start - 1].is_alphanumeric() || chars[start - 1] == '_') {
-        start -= 1;
-    }
-
-    let mut end = offset;
-    while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
-        end += 1;
-    }
-
-    if start < end {
-        Some(chars[start..end].iter().collect())
-    } else {
-        None
-    }
-}
-
 pub fn span_contains(span: &tx3_lang::ast::Span, offset: usize) -> bool {
     offset >= span.start && offset < span.end
 }
