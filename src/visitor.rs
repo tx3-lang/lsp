@@ -1,7 +1,6 @@
 #[derive(Debug)]
 pub enum SymbolAtOffset<'a> {
     Identifier(&'a tx3_lang::ast::Identifier),
-    // add more symbol variants if needed
 }
 
 pub fn find_symbol_in_program<'a>(
@@ -442,9 +441,12 @@ fn visit_record_field<'a>(
 }
 
 fn visit_party_def<'a>(
-    _party: &'a tx3_lang::ast::PartyDef,
-    _offset: usize,
+    party: &'a tx3_lang::ast::PartyDef,
+    offset: usize,
 ) -> Option<SymbolAtOffset<'a>> {
+    if in_span(&party.span, offset) {
+        return Some(SymbolAtOffset::Identifier(&party.name));
+    }
     None
 }
 

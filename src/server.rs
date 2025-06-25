@@ -151,6 +151,8 @@ impl LanguageServer for Context {
                     SymbolAtOffset::Identifier(x) => x,
                 };
 
+                // TODO - add support for types and assets
+
                 for party in &ast.parties {
                     if party.name.value == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
@@ -239,15 +241,15 @@ impl LanguageServer for Context {
             for party in &ast.parties {
                 if span_contains(&party.span, offset) {
                     return Ok(Some(Hover {
-                        contents: HoverContents::Markup(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: format!(
-                                "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
-                                party.name.value
-                            ),
-                        }),
-                        range: Some(span_to_lsp_range(document.value(), &party.span)),
-                    }));
+                    contents: HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: format!(
+                            "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
+                            party.name.value
+                        ),
+                    }),
+                    range: Some(span_to_lsp_range(document.value(), &party.span)),
+                }));
                 }
             }
 
@@ -262,6 +264,36 @@ impl LanguageServer for Context {
                             ),
                         }),
                         range: Some(span_to_lsp_range(document.value(), &policy.span)),
+                    }));
+                }
+            }
+
+            for type_def in &ast.types {
+                if span_contains(&type_def.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!(
+                                "**Type**: `{}`\n\nA type definition.",
+                                type_def.name.value
+                            ),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &type_def.span)),
+                    }));
+                }
+            }
+
+            for asset in &ast.assets {
+                if span_contains(&asset.span, offset) {
+                    return Ok(Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!(
+                                "**Asset**: `{}`\n\nAn asset definition.",
+                                asset.name.value
+                            ),
+                        }),
+                        range: Some(span_to_lsp_range(document.value(), &asset.span)),
                     }));
                 }
             }
