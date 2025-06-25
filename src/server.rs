@@ -152,7 +152,7 @@ impl LanguageServer for Context {
                 };
 
                 for party in &ast.parties {
-                    if party.name == identifier.value {
+                    if party.name.value == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                             uri: uri.clone(),
                             range: span_to_lsp_range(document.value(), &party.span),
@@ -161,7 +161,7 @@ impl LanguageServer for Context {
                 }
 
                 for policy in &ast.policies {
-                    if policy.name == identifier.value {
+                    if policy.name.value == identifier.value {
                         return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                             uri: uri.clone(),
                             range: span_to_lsp_range(document.value(), &policy.span),
@@ -172,7 +172,7 @@ impl LanguageServer for Context {
                 for tx in &ast.txs {
                     if span_contains(&tx.span, offset) {
                         for param in &tx.parameters.parameters {
-                            if param.name == identifier.value {
+                            if param.name.value == identifier.value {
                                 return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: uri.clone(),
                                     range: span_to_lsp_range(document.value(), &tx.parameters.span),
@@ -243,7 +243,7 @@ impl LanguageServer for Context {
                             kind: MarkupKind::Markdown,
                             value: format!(
                                 "**Party**: `{}`\n\nA party in the transaction. It can be an address for a script or a wallet.",
-                                party.name
+                                party.name.value
                             ),
                         }),
                         range: Some(span_to_lsp_range(document.value(), &party.span)),
@@ -256,7 +256,10 @@ impl LanguageServer for Context {
                     return Ok(Some(Hover {
                         contents: HoverContents::Markup(MarkupContent {
                             kind: MarkupKind::Markdown,
-                            value: format!("**Policy**: `{}`\n\nA policy definition.", policy.name),
+                            value: format!(
+                                "**Policy**: `{}`\n\nA policy definition.",
+                                policy.name.value
+                            ),
                         }),
                         range: Some(span_to_lsp_range(document.value(), &policy.span)),
                     }));
@@ -297,7 +300,7 @@ impl LanguageServer for Context {
                                 kind: MarkupKind::Markdown,
                                 value: format!(
                                     "**Parameter**: `{}`\n\n**Type**: `{:?}`",
-                                    param.name, param.r#type
+                                    param.name.value, param.r#type
                                 ),
                             }),
                             range: Some(span_to_lsp_range(document.value(), &tx.parameters.span)),
@@ -306,13 +309,15 @@ impl LanguageServer for Context {
                 }
 
                 if span_contains(&tx.span, offset) {
-                    let mut hover_text = format!("**Transaction**: `{}`\n\n", tx.name);
+                    let mut hover_text = format!("**Transaction**: `{}`\n\n", tx.name.value);
 
                     if !tx.parameters.parameters.is_empty() {
                         hover_text.push_str("**Parameters**:\n");
                         for param in &tx.parameters.parameters {
-                            hover_text
-                                .push_str(&format!("- `{}`: `{:?}`\n", param.name, param.r#type));
+                            hover_text.push_str(&format!(
+                                "- `{}`: `{:?}`\n",
+                                param.name.value, param.r#type
+                            ));
                         }
                         hover_text.push_str("\n");
                     }
@@ -383,7 +388,7 @@ impl LanguageServer for Context {
                 let ast = ast.unwrap();
                 for party in ast.parties {
                     symbols.push(make_symbol(
-                        party.name.clone(),
+                        party.name.value.clone(),
                         "Party".to_string(),
                         SymbolKind::OBJECT,
                         span_to_lsp_range(document.value(), &party.span),
@@ -393,7 +398,7 @@ impl LanguageServer for Context {
 
                 for policy in ast.policies {
                     symbols.push(make_symbol(
-                        policy.name.clone(),
+                        policy.name.value.clone(),
                         "Policy".to_string(),
                         SymbolKind::KEY,
                         span_to_lsp_range(document.value(), &policy.span),
@@ -405,7 +410,7 @@ impl LanguageServer for Context {
                     let mut children: Vec<DocumentSymbol> = Vec::new();
                     for parameter in tx.parameters.parameters {
                         children.push(make_symbol(
-                            parameter.name.clone(),
+                            parameter.name.value.clone(),
                             format!("Parameter<{:?}>", parameter.r#type),
                             SymbolKind::FIELD,
                             span_to_lsp_range(document.value(), &tx.parameters.span),
@@ -434,7 +439,7 @@ impl LanguageServer for Context {
                     }
 
                     symbols.push(make_symbol(
-                        tx.name.clone(),
+                        tx.name.value.clone(),
                         "Tx".to_string(),
                         SymbolKind::METHOD,
                         span_to_lsp_range(document.value(), &tx.span),

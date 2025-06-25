@@ -181,68 +181,73 @@ impl Context {
                         }
                         processed_spans.insert(span_key);
 
-                        let token_type = if ast.parties.iter().any(|p| p.name == identifier.value) {
-                            TOKEN_PARTY
-                        } else if ast.policies.iter().any(|p| p.name == identifier.value) {
-                            TOKEN_POLICY
-                        } else if ast.types.iter().any(|t| t.name == identifier.value) {
-                            TOKEN_TYPE
-                        } else if ast.assets.iter().any(|a| a.name == identifier.value) {
-                            TOKEN_CLASS
-                        } else {
-                            // Check if it's a transaction or component of a transaction
-                            let mut found_type = None;
+                        let token_type =
+                            if ast.parties.iter().any(|p| p.name.value == identifier.value) {
+                                TOKEN_PARTY
+                            } else if ast
+                                .policies
+                                .iter()
+                                .any(|p| p.name.value == identifier.value)
+                            {
+                                TOKEN_POLICY
+                            } else if ast.types.iter().any(|t| t.name.value == identifier.value) {
+                                TOKEN_TYPE
+                            } else if ast.assets.iter().any(|a| a.name.value == identifier.value) {
+                                TOKEN_CLASS
+                            } else {
+                                // Check if it's a transaction or component of a transaction
+                                let mut found_type = None;
 
-                            for tx in &ast.txs {
-                                if tx.name == identifier.value {
-                                    found_type = Some(TOKEN_TRANSACTION);
-                                    break;
-                                }
-
-                                if crate::span_contains(&tx.span, offset) {
-                                    for param in &tx.parameters.parameters {
-                                        if param.name == identifier.value {
-                                            found_type = Some(TOKEN_PARAMETER);
-                                            break;
-                                        }
+                                for tx in &ast.txs {
+                                    if tx.name.value == identifier.value {
+                                        found_type = Some(TOKEN_TRANSACTION);
+                                        break;
                                     }
 
-                                    if found_type.is_none() {
-                                        for input in &tx.inputs {
-                                            if input.name == identifier.value {
-                                                found_type = Some(TOKEN_INPUT);
+                                    if crate::span_contains(&tx.span, offset) {
+                                        for param in &tx.parameters.parameters {
+                                            if param.name.value == identifier.value {
+                                                found_type = Some(TOKEN_PARAMETER);
                                                 break;
                                             }
                                         }
-                                    }
 
-                                    if found_type.is_none() {
-                                        for output in &tx.outputs {
-                                            if let Some(output_name) = &output.name {
-                                                if *output_name == identifier.value {
-                                                    found_type = Some(TOKEN_OUTPUT);
+                                        if found_type.is_none() {
+                                            for input in &tx.inputs {
+                                                if input.name == identifier.value {
+                                                    found_type = Some(TOKEN_INPUT);
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if found_type.is_none() {
+                                            for output in &tx.outputs {
+                                                if let Some(output_name) = &output.name {
+                                                    if *output_name == identifier.value {
+                                                        found_type = Some(TOKEN_OUTPUT);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if found_type.is_none() {
+                                            for reference in &tx.references {
+                                                if reference.name == identifier.value {
+                                                    found_type = Some(TOKEN_REFERENCE);
                                                     break;
                                                 }
                                             }
                                         }
                                     }
 
-                                    if found_type.is_none() {
-                                        for reference in &tx.references {
-                                            if reference.name == identifier.value {
-                                                found_type = Some(TOKEN_REFERENCE);
-                                                break;
-                                            }
-                                        }
+                                    if found_type.is_some() {
+                                        break;
                                     }
                                 }
-
-                                if found_type.is_some() {
-                                    break;
-                                }
-                            }
-                            found_type.unwrap_or(TOKEN_VARIABLE)
-                        };
+                                found_type.unwrap_or(TOKEN_VARIABLE)
+                            };
 
                         token_infos.push(TokenInfo {
                             range: crate::span_to_lsp_range(rope, &identifier.span),
