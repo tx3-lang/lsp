@@ -28,21 +28,15 @@ impl LanguageServer for Context {
                             work_done_progress_options: WorkDoneProgressOptions::default(),
                             legend: SemanticTokensLegend {
                                 token_types: vec![
-                                    // SemanticTokenType::KEYWORD,
                                     SemanticTokenType::TYPE,
                                     SemanticTokenType::PARAMETER,
                                     SemanticTokenType::VARIABLE,
-                                    // SemanticTokenType::FUNCTION,
                                     SemanticTokenType::CLASS,
-                                    // SemanticTokenType::PROPERTY,
-
-                                    // Custom token types for tx3
                                     SemanticTokenType::new("party"),
                                     SemanticTokenType::new("policy"),
-                                    SemanticTokenType::new("transaction"),
-                                    SemanticTokenType::new("input"),
-                                    SemanticTokenType::new("output"),
-                                    SemanticTokenType::new("reference"),
+                                    SemanticTokenType::FUNCTION,
+                                    // SemanticTokenType::KEYWORD,
+                                    // SemanticTokenType::PROPERTY,
                                 ],
                                 token_modifiers: vec![
                                     SemanticTokenModifier::DECLARATION,

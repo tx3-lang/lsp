@@ -140,19 +140,15 @@ impl Context {
         rope: &Rope,
     ) -> Vec<SemanticToken> {
         // Token type indices based on the legend order
-        // const TOKEN_KEYWORD: u32 = 0;
         const TOKEN_TYPE: u32 = 0;
         const TOKEN_PARAMETER: u32 = 1;
         const TOKEN_VARIABLE: u32 = 2;
-        // const TOKEN_FUNCTION: u32 = 4;
         const TOKEN_CLASS: u32 = 3;
-        // const TOKEN_PROPERTY: u32 = 6;
         const TOKEN_PARTY: u32 = 4;
         const TOKEN_POLICY: u32 = 5;
-        const TOKEN_TRANSACTION: u32 = 6;
-        const TOKEN_INPUT: u32 = 7;
-        const TOKEN_OUTPUT: u32 = 8;
-        const TOKEN_REFERENCE: u32 = 9;
+        const TOKEN_FUNCTION: u32 = 6;
+        // const TOKEN_KEYWORD: u32 = 7;
+        // const TOKEN_PROPERTY: u32 = 8;
 
         // Token modifiers
         const MOD_DECLARATION: u32 = 1 << 0;
@@ -200,7 +196,7 @@ impl Context {
 
                                 for tx in &ast.txs {
                                     if tx.name.value == identifier.value {
-                                        found_type = Some(TOKEN_TRANSACTION);
+                                        found_type = Some(TOKEN_FUNCTION);
                                         break;
                                     }
 
@@ -209,35 +205,6 @@ impl Context {
                                             if param.name.value == identifier.value {
                                                 found_type = Some(TOKEN_PARAMETER);
                                                 break;
-                                            }
-                                        }
-
-                                        if found_type.is_none() {
-                                            for input in &tx.inputs {
-                                                if input.name == identifier.value {
-                                                    found_type = Some(TOKEN_INPUT);
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if found_type.is_none() {
-                                            for output in &tx.outputs {
-                                                if let Some(output_name) = &output.name {
-                                                    if *output_name == identifier.value {
-                                                        found_type = Some(TOKEN_OUTPUT);
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if found_type.is_none() {
-                                            for reference in &tx.references {
-                                                if reference.name == identifier.value {
-                                                    found_type = Some(TOKEN_REFERENCE);
-                                                    break;
-                                                }
                                             }
                                         }
                                     }

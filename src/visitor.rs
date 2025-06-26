@@ -36,6 +36,9 @@ pub fn find_symbol_in_program<'a>(
 }
 
 fn visit_tx_def<'a>(tx: &'a tx3_lang::ast::TxDef, offset: usize) -> Option<SymbolAtOffset<'a>> {
+    if in_span(&tx.name.span, offset) {
+        return Some(SymbolAtOffset::Identifier(&tx.name));
+    }
     if let Some(sym) = visit_parameter_list(&tx.parameters, offset) {
         return Some(sym);
     }
@@ -97,6 +100,9 @@ fn visit_parameter_list<'a>(
     offset: usize,
 ) -> Option<SymbolAtOffset<'a>> {
     for param in &params.parameters {
+        if in_span(&param.name.span, offset) {
+            return Some(SymbolAtOffset::Identifier(&param.name));
+        }
         if let Some(sym) = visit_type(&param.r#type, offset) {
             return Some(sym);
         }
@@ -105,6 +111,7 @@ fn visit_parameter_list<'a>(
 }
 
 fn visit_type<'a>(ty: &'a tx3_lang::ast::Type, offset: usize) -> Option<SymbolAtOffset<'a>> {
+    // TODO - complete for all types
     match ty {
         tx3_lang::ast::Type::Custom(id) => visit_identifier(id, offset),
         tx3_lang::ast::Type::List(inner) => visit_type(inner, offset),
@@ -413,6 +420,9 @@ fn visit_asset_def<'a>(
 }
 
 fn visit_type_def<'a>(ty: &'a tx3_lang::ast::TypeDef, offset: usize) -> Option<SymbolAtOffset<'a>> {
+    if in_span(&ty.span, offset) {
+        return Some(SymbolAtOffset::Identifier(&ty.name));
+    }
     for case in &ty.cases {
         if let Some(sym) = visit_variant_case(case, offset) {
             return Some(sym);
@@ -437,6 +447,9 @@ fn visit_record_field<'a>(
     field: &'a tx3_lang::ast::RecordField,
     offset: usize,
 ) -> Option<SymbolAtOffset<'a>> {
+    if in_span(&field.name.span, offset) {
+        return Some(SymbolAtOffset::Identifier(&field.name));
+    }
     visit_type(&field.r#type, offset)
 }
 
@@ -462,7 +475,11 @@ fn visit_policy_def<'a>(
                 }
             }
         }
-        tx3_lang::ast::PolicyValue::Assign(_) => {}
+        tx3_lang::ast::PolicyValue::Assign(_) => {
+            if in_span(&policy.span, offset) {
+                return Some(SymbolAtOffset::Identifier(&policy.name));
+            }
+        }
     }
     None
 }
