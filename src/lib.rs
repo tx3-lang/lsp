@@ -157,7 +157,6 @@ impl Context {
         ast: &tx3_lang::ast::Program,
         rope: &Rope,
     ) -> Vec<SemanticToken> {
-        // Token type indices based on the legend order
         const TOKEN_TYPE: u32 = 0;
         const TOKEN_PARAMETER: u32 = 1;
         const TOKEN_VARIABLE: u32 = 2;
@@ -168,7 +167,6 @@ impl Context {
         // const TOKEN_KEYWORD: u32 = 7;
         // const TOKEN_PROPERTY: u32 = 8;
 
-        // Token modifiers
         const MOD_DECLARATION: u32 = 1 << 0;
         const MOD_DEFINITION: u32 = 1 << 1;
 
@@ -214,7 +212,6 @@ impl Context {
                         } else if ast.assets.iter().any(|a| a.name.value == identifier.value) {
                             TOKEN_CLASS
                         } else {
-                            // Check if it's a transaction or component of a transaction
                             let mut found_type = None;
 
                             for tx in &ast.txs {
