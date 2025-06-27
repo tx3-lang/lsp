@@ -134,6 +134,24 @@ pub struct Context {
 }
 
 impl Context {
+    fn is_type_field_reference(
+        ast: &tx3_lang::ast::Program,
+        identifier: &str,
+        offset: usize,
+    ) -> bool {
+        for type_def in &ast.types {
+            if crate::span_contains(&type_def.span, offset) {
+                for case in &type_def.cases {
+                    for field in &case.fields {
+                        if identifier == field.r#type.clone().to_str() {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
     fn collect_semantic_tokens(
         &self,
         ast: &tx3_lang::ast::Program,
@@ -152,7 +170,7 @@ impl Context {
 
         // Token modifiers
         const MOD_DECLARATION: u32 = 1 << 0;
-        // const MOD_DEFINITION: u32 = 1 << 1;
+        const MOD_DEFINITION: u32 = 1 << 1;
 
         #[derive(Debug, Clone)]
         struct TokenInfo {
@@ -177,49 +195,61 @@ impl Context {
                         }
                         processed_spans.insert(span_key);
 
-                        let token_type =
-                            if ast.parties.iter().any(|p| p.name.value == identifier.value) {
-                                TOKEN_PARTY
-                            } else if ast
-                                .policies
-                                .iter()
-                                .any(|p| p.name.value == identifier.value)
-                            {
-                                TOKEN_POLICY
-                            } else if ast.types.iter().any(|t| t.name.value == identifier.value) {
-                                TOKEN_TYPE
-                            } else if ast.assets.iter().any(|a| a.name.value == identifier.value) {
-                                TOKEN_CLASS
-                            } else {
-                                // Check if it's a transaction or component of a transaction
-                                let mut found_type = None;
+                        let token_type = if ast
+                            .parties
+                            .iter()
+                            .any(|p| p.name.value == identifier.value)
+                        {
+                            TOKEN_PARTY
+                        } else if ast
+                            .policies
+                            .iter()
+                            .any(|p| p.name.value == identifier.value)
+                        {
+                            TOKEN_POLICY
+                        } else if ast.types.iter().any(|t| t.name.value == identifier.value) {
+                            TOKEN_TYPE
+                        } else if Context::is_type_field_reference(ast, &identifier.value, offset) {
+                            TOKEN_TYPE
+                        } else if ast.assets.iter().any(|a| a.name.value == identifier.value) {
+                            TOKEN_CLASS
+                        } else {
+                            // Check if it's a transaction or component of a transaction
+                            let mut found_type = None;
 
-                                for tx in &ast.txs {
-                                    if tx.name.value == identifier.value {
-                                        found_type = Some(TOKEN_FUNCTION);
-                                        break;
-                                    }
+                            for tx in &ast.txs {
+                                if tx.name.value == identifier.value {
+                                    found_type = Some(TOKEN_FUNCTION);
+                                    break;
+                                }
 
-                                    if crate::span_contains(&tx.span, offset) {
-                                        for param in &tx.parameters.parameters {
-                                            if param.name.value == identifier.value {
-                                                found_type = Some(TOKEN_PARAMETER);
-                                                break;
-                                            }
+                                if crate::span_contains(&tx.span, offset) {
+                                    for param in &tx.parameters.parameters {
+                                        if param.name.value == identifier.value {
+                                            found_type = Some(TOKEN_PARAMETER);
+                                            break;
                                         }
                                     }
-
-                                    if found_type.is_some() {
-                                        break;
-                                    }
                                 }
-                                found_type.unwrap_or(TOKEN_VARIABLE)
-                            };
+
+                                if found_type.is_some() {
+                                    break;
+                                }
+                            }
+                            found_type.unwrap_or(TOKEN_VARIABLE)
+                        };
 
                         token_infos.push(TokenInfo {
                             range: crate::span_to_lsp_range(rope, &identifier.span),
                             token_type,
-                            token_modifiers: MOD_DECLARATION,
+                            token_modifiers: MOD_DECLARATION | MOD_DEFINITION,
+                        });
+                    }
+                    visitor::SymbolAtOffset::TypeIdentifier(x) => {
+                        token_infos.push(TokenInfo {
+                            range: crate::span_to_lsp_range(rope, &x.span),
+                            token_type: TOKEN_TYPE,
+                            token_modifiers: MOD_DECLARATION | MOD_DEFINITION,
                         });
                     }
                 }

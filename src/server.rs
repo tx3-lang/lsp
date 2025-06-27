@@ -40,7 +40,7 @@ impl LanguageServer for Context {
                                 ],
                                 token_modifiers: vec![
                                     SemanticTokenModifier::DECLARATION,
-                                    // SemanticTokenModifier::DEFINITION,
+                                    SemanticTokenModifier::DEFINITION,
                                     SemanticTokenModifier::READONLY,
                                     SemanticTokenModifier::STATIC,
                                 ],
@@ -143,9 +143,14 @@ impl LanguageServer for Context {
             if let Some(symbol) = find_symbol_in_program(&ast, offset) {
                 let identifier = match symbol {
                     SymbolAtOffset::Identifier(x) => x,
+                    SymbolAtOffset::TypeIdentifier(type_record) => {
+                        // TODO - look only in type definitions
+                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
+                            uri: uri.clone(),
+                            range: span_to_lsp_range(document.value(), &type_record.span),
+                        })));
+                    }
                 };
-
-                // TODO - add support for types and assets
 
                 for party in &ast.parties {
                     if party.name.value == identifier.value {
