@@ -150,7 +150,7 @@ fn visit_input_block_field<'a>(
     match field {
         tx3_lang::ast::InputBlockField::From(addr) => visit_address_expr(addr, offset),
         tx3_lang::ast::InputBlockField::DatumIs(ty) => visit_type(ty, offset),
-        tx3_lang::ast::InputBlockField::MinAmount(expr) => visit_asset_expr(expr, offset),
+        tx3_lang::ast::InputBlockField::MinAmount(expr) => visit_data_expr(expr, offset),
         tx3_lang::ast::InputBlockField::Redeemer(expr) => visit_data_expr(expr, offset),
         tx3_lang::ast::InputBlockField::Ref(expr) => visit_data_expr(expr, offset),
     }
@@ -174,39 +174,8 @@ fn visit_output_block_field<'a>(
 ) -> Option<SymbolAtOffset<'a>> {
     match field {
         tx3_lang::ast::OutputBlockField::To(addr) => visit_address_expr(addr, offset),
-        tx3_lang::ast::OutputBlockField::Amount(expr) => visit_asset_expr(expr, offset),
+        tx3_lang::ast::OutputBlockField::Amount(expr) => visit_data_expr(expr, offset),
         tx3_lang::ast::OutputBlockField::Datum(expr) => visit_data_expr(expr, offset),
-    }
-}
-
-fn visit_asset_expr<'a>(
-    expr: &'a tx3_lang::ast::AssetExpr,
-    offset: usize,
-) -> Option<SymbolAtOffset<'a>> {
-    match expr {
-        tx3_lang::ast::AssetExpr::Identifier(id) => visit_identifier(id, offset),
-        tx3_lang::ast::AssetExpr::StaticConstructor(constr) => {
-            if let Some(sym) = visit_identifier(&constr.r#type, offset) {
-                return Some(sym);
-            }
-            visit_data_expr(&constr.amount, offset)
-        }
-        tx3_lang::ast::AssetExpr::AnyConstructor(constr) => {
-            if let Some(sym) = visit_data_expr(&constr.policy, offset) {
-                return Some(sym);
-            }
-            if let Some(sym) = visit_data_expr(&constr.asset_name, offset) {
-                return Some(sym);
-            }
-            visit_data_expr(&constr.amount, offset)
-        }
-        tx3_lang::ast::AssetExpr::BinaryOp(binop) => {
-            if let Some(sym) = visit_asset_expr(&binop.left, offset) {
-                return Some(sym);
-            }
-            visit_asset_expr(&binop.right, offset)
-        }
-        tx3_lang::ast::AssetExpr::PropertyAccess(pa) => visit_property_access(pa, offset),
     }
 }
 
@@ -224,13 +193,6 @@ fn visit_data_expr<'a>(
                 }
             }
             None
-        }
-        tx3_lang::ast::DataExpr::PropertyAccess(pa) => visit_property_access(pa, offset),
-        tx3_lang::ast::DataExpr::BinaryOp(binop) => {
-            if let Some(sym) = visit_data_expr(&binop.left, offset) {
-                return Some(sym);
-            }
-            visit_data_expr(&binop.right, offset)
         }
         _ => None,
     }
@@ -274,21 +236,6 @@ fn visit_record_constructor_field<'a>(
     visit_data_expr(&field.value, offset)
 }
 
-fn visit_property_access<'a>(
-    pa: &'a tx3_lang::ast::PropertyAccess,
-    offset: usize,
-) -> Option<SymbolAtOffset<'a>> {
-    if let Some(sym) = visit_identifier(&pa.object, offset) {
-        return Some(sym);
-    }
-    for id in &pa.path {
-        if let Some(sym) = visit_identifier(id, offset) {
-            return Some(sym);
-        }
-    }
-    None
-}
-
 fn visit_reference_block<'a>(
     rb: &'a tx3_lang::ast::ReferenceBlock,
     offset: usize,
@@ -315,7 +262,7 @@ fn visit_collateral_block<'a>(
                 }
             }
             tx3_lang::ast::CollateralBlockField::MinAmount(expr) => {
-                if let Some(sym) = visit_asset_expr(expr, offset) {
+                if let Some(sym) = visit_data_expr(expr, offset) {
                     return Some(sym);
                 }
             }
@@ -365,7 +312,7 @@ fn visit_burn_block<'a>(
     for field in &bb.fields {
         match field {
             tx3_lang::ast::MintBlockField::Amount(expr) => {
-                if let Some(sym) = visit_asset_expr(expr, offset) {
+                if let Some(sym) = visit_data_expr(expr, offset) {
                     return Some(sym);
                 }
             }
@@ -393,7 +340,7 @@ fn visit_mint_block<'a>(
     for field in &mb.fields {
         match field {
             tx3_lang::ast::MintBlockField::Amount(expr) => {
-                if let Some(sym) = visit_asset_expr(expr, offset) {
+                if let Some(sym) = visit_data_expr(expr, offset) {
                     return Some(sym);
                 }
             }
