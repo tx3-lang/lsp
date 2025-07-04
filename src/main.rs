@@ -1,9 +1,19 @@
+use clap::Parser;
 use tower::ServiceBuilder;
 use tower_lsp::{LspService, Server};
 use tx3_lsp::Context;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    stdio: bool,
+}
+
 #[tokio::main]
 async fn main() {
+    let _args = Args::parse();
+
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
@@ -15,5 +25,7 @@ async fn main() {
         .map_response(|response| response)
         .service(service);
 
-    Server::new(stdin, stdout, socket).serve(service).await;
+    let server = Server::new(stdin, stdout, socket);
+
+    server.serve(service).await;
 }

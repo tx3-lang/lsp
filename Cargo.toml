@@ -5,7 +5,7 @@ authors = ["TxPipe"]
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tx3-lang/lsp"
-version = "0.4.0"
+version = "0.5.1"
 keywords = ["blockchain", "cardano", "utxo", "dsl"]
 homepage = "https://github.com/tx3-lang/lsp"
 readme = "README.md"
@@ -23,6 +23,7 @@ serde_json = "1.0.140"
 hex = "0.4.3"
 thiserror = "2.0.12"
 url = "2.5.4"
+clap = { version = "4.5", features = ["derive"] }
 
 # The profile that 'dist' will build with
 [profile.dist]
