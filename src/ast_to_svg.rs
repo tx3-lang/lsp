@@ -29,9 +29,13 @@ struct Parameter {
 }
 
 fn infer_party_type(program: &Program, name: &str) -> PartyType {
-    if program.policies.iter().any(|policy| policy.name == name) {
+    if program
+        .policies
+        .iter()
+        .any(|policy| policy.name.value == name)
+    {
         PartyType::Policy
-    } else if program.parties.iter().any(|party| party.name == name) {
+    } else if program.parties.iter().any(|party| party.name.value == name) {
         PartyType::Party
     } else {
         PartyType::Unknown
@@ -213,7 +217,7 @@ fn render_tx(tx: &TxDef, x: i32, y: i32) -> String {
         width = UNIT * 2,
         height = UNIT * 4,
         corner = UNIT as f64 / 10.0,
-        name = tx.name
+        name = tx.name.value
     )
 }
 
