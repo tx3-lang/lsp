@@ -143,13 +143,10 @@ impl LanguageServer for Context {
             if let Some(symbol) = find_symbol_in_program(&ast, offset) {
                 let identifier = match symbol {
                     SymbolAtOffset::Identifier(x) => x,
-                    SymbolAtOffset::TypeIdentifier(type_record) => {
-                        // TODO - look only in type definitions
-                        return Ok(Some(GotoDefinitionResponse::Scalar(Location {
-                            uri: uri.clone(),
-                            range: span_to_lsp_range(document.value(), &type_record.span),
-                        })));
-                    }
+                    SymbolAtOffset::TypeIdentifier(ty) => match ty {
+                        tx3_lang::ast::Type::Custom(x) => x,
+                        _ => return Ok(None),
+                    },
                 };
 
                 for party in &ast.parties {

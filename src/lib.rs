@@ -143,7 +143,7 @@ impl Context {
             if crate::span_contains(&type_def.span, offset) {
                 for case in &type_def.cases {
                     for field in &case.fields {
-                        if identifier == field.r#type.clone().to_str() {
+                        if identifier == field.r#type.to_string() {
                             return true;
                         }
                     }
@@ -243,11 +243,13 @@ impl Context {
                         });
                     }
                     visitor::SymbolAtOffset::TypeIdentifier(x) => {
-                        token_infos.push(TokenInfo {
-                            range: crate::span_to_lsp_range(rope, &x.span),
-                            token_type: TOKEN_TYPE,
-                            token_modifiers: MOD_DECLARATION | MOD_DEFINITION,
-                        });
+                        // TODO: wait for the introduction of `TypeAnnotation` in AST
+
+                        // token_infos.push(TokenInfo {
+                        //     range: crate::span_to_lsp_range(rope, &x.span),
+                        //     token_type: TOKEN_TYPE,
+                        //     token_modifiers: MOD_DECLARATION | MOD_DEFINITION,
+                        // });
                     }
                 }
             }

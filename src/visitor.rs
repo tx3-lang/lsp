@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub enum SymbolAtOffset<'a> {
     Identifier(&'a tx3_lang::ast::Identifier),
-    TypeIdentifier(&'a tx3_lang::ast::TypeRecord),
+    TypeIdentifier(&'a tx3_lang::ast::Type),
 }
 
 pub fn find_symbol_in_program<'a>(
@@ -111,9 +111,9 @@ fn visit_parameter_list<'a>(
     None
 }
 
-fn visit_type<'a>(ty: &'a tx3_lang::ast::TypeRecord, offset: usize) -> Option<SymbolAtOffset<'a>> {
+fn visit_type<'a>(ty: &'a tx3_lang::ast::Type, offset: usize) -> Option<SymbolAtOffset<'a>> {
     // TODO - complete for all types
-    match &ty.r#type {
+    match &ty {
         tx3_lang::ast::Type::Custom(id) => visit_identifier(id, offset),
         tx3_lang::ast::Type::List(inner) => visit_type(inner, offset),
         _ => None,
@@ -373,9 +373,11 @@ fn visit_type_def<'a>(ty: &'a tx3_lang::ast::TypeDef, offset: usize) -> Option<S
     }
     for case in &ty.cases {
         for field in &case.fields {
-            if in_span(&field.r#type.span, offset) {
-                return Some(SymbolAtOffset::TypeIdentifier(&field.r#type));
-            }
+            // TODO: wait for the introduction of `TypeAnnotation` in AST
+
+            // if in_span(&field.r#type.span, offset) {
+            //     return Some(SymbolAtOffset::TypeIdentifier(&field.r#type));
+            // }
         }
         if let Some(sym) = visit_variant_case(case, offset) {
             return Some(sym);
