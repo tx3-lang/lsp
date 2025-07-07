@@ -1213,9 +1213,9 @@ dependencies = [
 
 [[package]]
 name = "tx3-lang"
-version = "0.7.0"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0a45723cea8deff15587048a1b4a2fa6d4fe9ac5c0e66ab2e9a4d22b2eb6bbd"
+checksum = "b920a74d0ee62f0ff63844333f9e81badfe705b6a01fbc94b52ec410873e716d"
 dependencies = [
  "bincode",
  "hex",
