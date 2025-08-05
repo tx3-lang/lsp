@@ -58,6 +58,11 @@ fn visit_tx_def<'a>(tx: &'a tx3_lang::ast::TxDef, offset: usize) -> Option<Symbo
             return Some(sym);
         }
     }
+    for burn in &tx.burns {
+        if let Some(sym) = visit_mint_block(burn, offset) {
+            return Some(sym);
+        }
+    }
     for ref_block in &tx.references {
         if let Some(sym) = visit_reference_block(ref_block, offset) {
             return Some(sym);
@@ -80,11 +85,6 @@ fn visit_tx_def<'a>(tx: &'a tx3_lang::ast::TxDef, offset: usize) -> Option<Symbo
     }
     if let Some(validity) = &tx.validity {
         if let Some(sym) = visit_validity_block(validity, offset) {
-            return Some(sym);
-        }
-    }
-    if let Some(burn) = &tx.burn {
-        if let Some(sym) = visit_burn_block(burn, offset) {
             return Some(sym);
         }
     }
@@ -305,27 +305,6 @@ fn visit_validity_block<'a>(
     None
 }
 
-fn visit_burn_block<'a>(
-    bb: &'a tx3_lang::ast::BurnBlock,
-    offset: usize,
-) -> Option<SymbolAtOffset<'a>> {
-    for field in &bb.fields {
-        match field {
-            tx3_lang::ast::MintBlockField::Amount(expr) => {
-                if let Some(sym) = visit_data_expr(expr, offset) {
-                    return Some(sym);
-                }
-            }
-            tx3_lang::ast::MintBlockField::Redeemer(expr) => {
-                if let Some(sym) = visit_data_expr(expr, offset) {
-                    return Some(sym);
-                }
-            }
-        }
-    }
-    None
-}
-
 fn visit_metadata_block<'a>(
     _mb: &'a tx3_lang::ast::MetadataBlock,
     _offset: usize,
@@ -451,11 +430,11 @@ fn visit_policy_field<'a>(
 }
 
 fn visit_address_expr<'a>(
-    expr: &'a tx3_lang::ast::AddressExpr,
+    expr: &'a tx3_lang::ast::DataExpr,
     offset: usize,
 ) -> Option<SymbolAtOffset<'a>> {
     match expr {
-        tx3_lang::ast::AddressExpr::Identifier(id) => visit_identifier(id, offset),
+        tx3_lang::ast::DataExpr::Identifier(id) => visit_identifier(id, offset),
         _ => None,
     }
 }

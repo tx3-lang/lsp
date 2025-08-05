@@ -1,4 +1,5 @@
 use std::fmt::Write;
+use tx3_lang::ast::Identifier;
 use tx3_lang::ast::InputBlockField;
 use tx3_lang::ast::OutputBlockField;
 use tx3_lang::ast::Program;
@@ -145,9 +146,11 @@ fn get_outputs(tx: &TxDef) -> Vec<Parameter> {
         .enumerate()
         .map(|(i, output)| {
             let name = output
-                .name
                 .clone()
-                .unwrap_or_else(|| format!("output {}", i + 1));
+                .name
+                .unwrap_or(Identifier::new(format!("output {}", i + 1)))
+                .value;
+
             let party = output.fields.iter().find_map(|f| {
                 if let OutputBlockField::To(address_expr) = f {
                     address_expr
@@ -158,6 +161,7 @@ fn get_outputs(tx: &TxDef) -> Vec<Parameter> {
                     None
                 }
             });
+
             Parameter { name, party }
         })
         .collect()
