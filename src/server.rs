@@ -1,5 +1,6 @@
 use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
+use tx3_lang::ast::Identifier;
 
 use crate::{
     cmds, position_to_offset, span_contains, span_to_lsp_range,
@@ -189,7 +190,7 @@ impl LanguageServer for Context {
 
                         for output in &tx.outputs {
                             if let Some(output_name) = &output.name {
-                                if output_name == &identifier.value {
+                                if output_name == identifier {
                                     return Ok(Some(GotoDefinitionResponse::Scalar(Location {
                                         uri: uri.clone(),
                                         range: span_to_lsp_range(document.value(), &output.span),
@@ -307,14 +308,17 @@ impl LanguageServer for Context {
                     }
                 }
 
-                for output in &tx.outputs {
+                for (i, output) in tx.outputs.iter().enumerate() {
                     if span_contains(&output.span, offset) {
-                        let default_output = "output".to_string();
+                        let default_output = Identifier::new(format!("output {}", i + 1));
                         let name = output.name.as_ref().unwrap_or(&default_output);
                         return Ok(Some(Hover {
                             contents: HoverContents::Markup(MarkupContent {
                                 kind: MarkupKind::Markdown,
-                                value: format!("**Output**: `{}`\n\nTransaction output.", name),
+                                value: format!(
+                                    "**Output**: `{}`\n\nTransaction output.",
+                                    name.value
+                                ),
                             }),
                             range: Some(span_to_lsp_range(document.value(), &output.span)),
                         }));
@@ -360,10 +364,11 @@ impl LanguageServer for Context {
 
                     if !tx.outputs.is_empty() {
                         hover_text.push_str("**Outputs**:\n");
-                        for output in &tx.outputs {
-                            let default_output = "output".to_string();
+                        for (i, output) in tx.outputs.iter().enumerate() {
+                            let default_output = Identifier::new(format!("output {}", i + 1));
+
                             let name = output.name.as_ref().unwrap_or(&default_output);
-                            hover_text.push_str(&format!("- `{}`\n", name));
+                            hover_text.push_str(&format!("- `{}`\n", name.value));
                         }
                     }
 
@@ -456,9 +461,13 @@ impl LanguageServer for Context {
                         ));
                     }
 
-                    for output in tx.outputs {
+                    for (i, output) in tx.outputs.iter().enumerate() {
+                        let default_output = Identifier::new(format!("output {}", i + 1));
+
+                        let name = output.name.as_ref().unwrap_or(&default_output);
+
                         children.push(make_symbol(
-                            output.name.unwrap_or_else(|| { "output" }.to_string()),
+                            name.value.clone(),
                             "Output".to_string(),
                             SymbolKind::OBJECT,
                             span_to_lsp_range(document.value(), &output.span),
