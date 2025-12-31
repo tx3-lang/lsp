@@ -1,6 +1,6 @@
 use serde_json::Value;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, LanguageServer};
-use tx3_lang::ast::Identifier;
+use tx3_lang::ast::{Identifier, Symbol};
 
 use crate::{
     cmds, position_to_offset, span_contains, span_to_lsp_range,
@@ -413,78 +413,168 @@ impl LanguageServer for Context {
 
         let mut symbols: Vec<DocumentSymbol> = Vec::new();
         let uri = &params.text_document.uri;
-        let document = self.documents.get(uri);
-        if let Some(document) = document {
-            let text = document.value().to_string();
-            let ast = tx3_lang::parsing::parse_string(text.as_str());
-            if ast.is_ok() {
-                let ast = ast.unwrap();
-                for party in ast.parties {
-                    symbols.push(make_symbol(
-                        party.name.value.clone(),
-                        "Party".to_string(),
-                        SymbolKind::OBJECT,
-                        span_to_lsp_range(document.value(), &party.span),
-                        None,
-                    ));
-                }
 
-                for policy in ast.policies {
-                    symbols.push(make_symbol(
-                        policy.name.value.clone(),
-                        "Policy".to_string(),
-                        SymbolKind::KEY,
-                        span_to_lsp_range(document.value(), &policy.span),
-                        None,
-                    ));
-                }
+        let Ok(path) = uri.to_file_path() else {
+            return Ok(None);
+        };
 
-                for tx in ast.txs {
-                    let mut children: Vec<DocumentSymbol> = Vec::new();
-                    for parameter in tx.parameters.parameters {
-                        children.push(make_symbol(
-                            parameter.name.value.clone(),
-                            format!("Parameter<{:?}>", parameter.r#type),
+        let loader = tx3_lang::loading::ProtocolLoader::from_file(&path);
+        let Ok(protocol) = loader.load() else {
+            return Ok(None);
+        };
+
+        let Some(document) = self.documents.get(uri) else {
+            return Ok(None);
+        };
+
+        let ast = protocol.ast();
+
+        if let Some(scope) = ast.scope() {
+            let mut current_scope = Some(scope);
+            while let Some(s) = current_scope {
+                for (name, symbol) in s.symbols() {
+                    let (kind, range, detail) = match symbol {
+                        Symbol::PartyDef(def) => (
+                            SymbolKind::OBJECT,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Party".to_string(),
+                        ),
+                        Symbol::PolicyDef(def) => (
+                            SymbolKind::KEY,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Policy".to_string(),
+                        ),
+                        Symbol::AssetDef(def) => (
                             SymbolKind::FIELD,
-                            span_to_lsp_range(document.value(), &tx.parameters.span),
-                            None,
-                        ));
-                    }
-
-                    for input in tx.inputs {
-                        children.push(make_symbol(
-                            input.name.clone(),
-                            "Input".to_string(),
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Asset".to_string(),
+                        ),
+                        Symbol::TypeDef(def) => (
+                            SymbolKind::TYPE_PARAMETER,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Type".to_string(),
+                        ),
+                        Symbol::AliasDef(def) => (
+                            SymbolKind::INTERFACE,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Alias".to_string(),
+                        ),
+                        Symbol::RecordField(def) => (
+                            SymbolKind::FIELD,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Field".to_string(),
+                        ),
+                        Symbol::VariantCase(def) => (
+                            SymbolKind::ENUM_MEMBER,
+                            span_to_lsp_range(document.value(), &def.span),
+                            "Variant Case".to_string(),
+                        ),
+                        Symbol::EnvVar(_, ty) => (
+                            SymbolKind::VARIABLE,
+                            Range::default(),
+                            format!("EnvVar({:?})", ty),
+                        ),
+                        Symbol::ParamVar(_, ty) => (
+                            SymbolKind::VARIABLE,
+                            Range::default(),
+                            format!("ParamVar({:?})", ty),
+                        ),
+                        Symbol::LocalExpr(_) => (
+                            SymbolKind::VARIABLE,
+                            Range::default(),
+                            "LocalExpr".to_string(),
+                        ),
+                        Symbol::Output(idx) => (
                             SymbolKind::OBJECT,
-                            span_to_lsp_range(document.value(), &input.span),
-                            None,
-                        ));
-                    }
+                            Range::default(),
+                            format!("Output({})", idx),
+                        ),
+                        Symbol::Input(_) => {
+                            (SymbolKind::OBJECT, Range::default(), "Input".to_string())
+                        }
+                        Symbol::Fees => {
+                            (SymbolKind::CONSTANT, Range::default(), "Fees".to_string())
+                        }
+                    };
 
-                    for (i, output) in tx.outputs.iter().enumerate() {
-                        let default_output = Identifier::new(format!("output {}", i + 1));
-
-                        let name = output.name.as_ref().unwrap_or(&default_output);
-
-                        children.push(make_symbol(
-                            name.value.clone(),
-                            "Output".to_string(),
-                            SymbolKind::OBJECT,
-                            span_to_lsp_range(document.value(), &output.span),
-                            None,
-                        ));
-                    }
-
-                    symbols.push(make_symbol(
-                        tx.name.value.clone(),
-                        "Tx".to_string(),
-                        SymbolKind::METHOD,
-                        span_to_lsp_range(document.value(), &tx.span),
-                        Some(children),
-                    ));
+                    symbols.push(make_symbol(name.clone(), detail, kind, range, None));
                 }
+                current_scope = s.parent();
             }
         }
+
+        for tx in &ast.txs {
+            let mut children: Vec<DocumentSymbol> = Vec::new();
+            for parameter in &tx.parameters.parameters {
+                children.push(make_symbol(
+                    parameter.name.value.clone(),
+                    format!("Parameter<{:?}>", parameter.r#type),
+                    SymbolKind::FIELD,
+                    span_to_lsp_range(document.value(), &tx.parameters.span),
+                    None,
+                ));
+            }
+
+            for input in &tx.inputs {
+                children.push(make_symbol(
+                    input.name.clone(),
+                    "Input".to_string(),
+                    SymbolKind::OBJECT,
+                    span_to_lsp_range(document.value(), &input.span),
+                    None,
+                ));
+            }
+
+            for (i, output) in tx.outputs.iter().enumerate() {
+                let default_output = Identifier::new(format!("output {}", i + 1));
+
+                let name = output.name.as_ref().unwrap_or(&default_output);
+
+                children.push(make_symbol(
+                    name.value.clone(),
+                    "Output".to_string(),
+                    SymbolKind::OBJECT,
+                    span_to_lsp_range(document.value(), &output.span),
+                    None,
+                ));
+            }
+
+            symbols.push(make_symbol(
+                tx.name.value.clone(),
+                "Tx".to_string(),
+                SymbolKind::METHOD,
+                span_to_lsp_range(document.value(), &tx.span),
+                Some(children),
+            ));
+        }
+
+        let mut groups: std::collections::HashMap<String, Vec<DocumentSymbol>> =
+            std::collections::HashMap::new();
+
+        for symbol in symbols {
+            let key = symbol.detail.clone().unwrap();
+            groups.entry(key).or_default().push(symbol);
+        }
+
+        let mut symbols: Vec<DocumentSymbol> = Vec::new();
+        let mut keys: Vec<String> = groups.keys().cloned().collect();
+        keys.sort();
+
+        for key in keys {
+            let mut children = groups.remove(&key).unwrap();
+            children.sort_by(|a, b| a.name.cmp(&b.name));
+
+            let range = children.first().map(|c| c.range).unwrap_or_default();
+
+            symbols.push(make_symbol(
+                key,
+                String::new(),
+                SymbolKind::ENUM,
+                range,
+                Some(children),
+            ));
+        }
+
         Ok(Some(DocumentSymbolResponse::Nested(symbols)))
     }
 
